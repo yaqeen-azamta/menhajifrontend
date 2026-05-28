@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"/Users/mac/Projects\" -name \"*.java\" 2>/dev/null | head -20 && find \"/Users/mac/IdeaProjects\" -name \"*.java\" 2>/dev/null | head -20)",
+      "Read(//Users/mac/Projects/**)",
+      "Read(//Users/mac/IdeaProjects/**)",
+      "Bash(xargs ls -la)",
+      "Bash(./gradlew compileJava --info)",
+      "Bash(grep -v \"^$\")"
+    ],
+    "additionalDirectories": [
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/entity/enums",
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/entity",
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/dto/response",
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/repository",
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/dto/request",
+      "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/config",
+      "/Users/mac/Downloads/Manhaji-main/src/main/resources"
+    ]
+  }
+}

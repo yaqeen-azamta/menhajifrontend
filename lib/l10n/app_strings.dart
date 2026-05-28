@@ -1,0 +1,198 @@
+// Centralized Arabic strings.
+// To add English support later, create AppStringsEn with the same fields
+// and swap based on the active locale.
+class AppStrings {
+  AppStrings._();
+
+  // ── General ────────────────────────────────────────────────
+  static const appName = 'منهاجي';
+  static const retry = 'إعادة المحاولة';
+  static const goBack = 'رجوع';
+  static const continueBtn = 'متابعة';
+  static const finish = 'إنهاء 🎉';
+  static const cancel = 'إلغاء';
+  static const loading = 'جارٍ التحميل...';
+
+  // ── Login ──────────────────────────────────────────────────
+  static const loginWelcome = 'أهلاً';
+  static const loginSignUpTitle = 'إنشاء حساب للأهل';
+  static const loginTab = 'تسجيل الدخول';
+  static const signUpTab = 'إنشاء حساب';
+  static const loginBtn = 'تسجيل الدخول';
+  static const signUpBtn = 'إنشاء حساب';
+  static const parentName = 'اسم ولي الأمر';
+  static const emailHint = 'البريد الإلكتروني';
+  static const passwordHint = 'كلمة المرور';
+  static const loginParentsOnly =
+      'للوالدين فقط — سيحصل الأطفال على ملفاتهم الشخصية قريباً.';
+  static const loginFillFields = 'يرجى ملء جميع الحقول';
+  static const loginEnterName = 'يرجى إدخال الاسم';
+  static const loginConnectionError = 'خطأ في الاتصال. يرجى المحاولة مجدداً.';
+
+  // ── Profiles ───────────────────────────────────────────────
+  static const profilesGreeting = 'أهلاً';
+  static const profilesWhoLearning = 'من يتعلم اليوم؟';
+  static const profilesAddKid = 'إضافة طفل';
+  static const profilesAddKidBtn = '+ إضافة طفل';
+  static const profilesNoKids =
+      'لم يتم إضافة أطفال بعد.\nاضغط "إضافة طفل" لإنشاء أول ملف.';
+  static const profilesAddKidTitle = 'إضافة طفل';
+  static const profilesAddKidSubtitle = 'أنشئ حساباً تعليمياً لطفلك.';
+  static const profilesChildName = 'اسم الطفل الكامل';
+  static const profilesChildEmail = 'البريد الإلكتروني';
+  static const profilesChildPassword = 'كلمة المرور (6 أحرف كحد أدنى)';
+  static const profilesGradeLevel = 'المرحلة الدراسية';
+  static const profilesChooseAvatar = 'اختر الصورة الرمزية';
+  static const profilesCreateAccount = 'إنشاء الحساب';
+  static const profilesNameRequired = 'الاسم مطلوب';
+  static const profilesInvalidEmail = 'أدخل بريداً إلكترونياً صحيحاً';
+  static const profilesPasswordTooShort =
+      'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+  static const profilesCreateFailed = 'تعذر إنشاء الحساب. حاول مجدداً.';
+  static const profilesParentNotFound =
+      'تعذر التعرف على ولي الأمر. يرجى إعادة تسجيل الدخول.';
+
+  // ── Home ───────────────────────────────────────────────────
+  static String homeGreeting(String name) => 'أهلاً $name! 👋';
+  static const homeSubtitle = 'هل أنت مستعد لتعلم شيء ممتع اليوم؟';
+  static const homeDailyGoal = 'هدف اليوم';
+  static const homeNoLessons = 'لا دروس بعد';
+  static String homeLessonsProgress(int done, int total) =>
+      '$done / $total درس';
+  static const homeKeepGoing = 'استمر! أنت تستطيع!';
+  static const homeAllDone = '🎉 انتهيت من جميع الدروس! رائع!';
+  static const homeLessonsSoon = 'ستظهر دروسك هنا قريباً!';
+  static const homeNextUp = 'الدرس التالي';
+  static String homeNextMeta(int semester, int order) =>
+      'الفصل $semester · الدرس $order';
+  static String homeStartLesson(String title) => 'ابدأ $title';
+  static const homeWelcomeMsg =
+      '🎉 مرحباً! ستظهر دروسك هنا بمجرد إعدادها من قبل المعلم.';
+  static const homeSubjects = 'المواد الدراسية';
+  static const homeNoSubjects = 'لا توجد مواد مخصصة لهذا الصف بعد.';
+  static const homeLessonPath = 'مسار الدروس';
+  static const homeMyRewards = 'مكافآتي';
+  static const homeSelectChild = 'يرجى اختيار ملف طفل للمتابعة.';
+  static const homeSessionExpired =
+      'انتهت الجلسة. يرجى اختيار ملف الطالب مجدداً.';
+  static const homeSwitchProfile = 'تغيير الملف';
+  static String homeLessonsDone(int done, int total) => '$done/$total مكتمل';
+
+  // ── Path ───────────────────────────────────────────────────
+  static const pathTitle = '🗺 مسار الدروس';
+  static const pathMath = '🔢 مسار الرياضيات';
+  static const pathReading = '📖 مسار القراءة';
+  static const pathScience = '🔬 مسار العلوم';
+  static const pathNoLessons = 'لا توجد دروس متاحة بعد.';
+  static const pathCompleted = 'مكتمل';
+  static const pathTapToStart = 'اضغط للبدء!';
+  static const pathLocked = 'مقفل';
+
+  // ── Lesson ─────────────────────────────────────────────────
+  static const lessonNotFound = 'لم يتم العثور على الدرس.';
+  static const lessonStepWelcomeTitle = 'مرحباً!';
+  static String lessonStepWelcomeBody(String title, String objectives) =>
+      'مرحباً بك في: $title. $objectives';
+  static const lessonStepLearnTitle = 'تعلّم';
+  static const lessonStepSpeakTitle = 'حاول قوله!';
+  static const lessonStepSpeakBody =
+      'اضغط على الميكروفون واقرأ الدرس بصوت عالٍ!';
+  static const lessonTapToHear = 'اضغط للاستماع';
+  static String lessonYouSaid(String text) => 'قلت: "$text"';
+  static const lessonMicPermission =
+      'يرجى السماح بالوصول إلى الميكروفون. يمكنك المتابعة!';
+  static const lessonViewQuestions = 'عرض الأسئلة 📖';
+  static const lessonAudioNotAvailable = 'الصوت غير متاح';
+  static const lessonAudioFailed = 'تعذر تحميل الصوت';
+
+  // ── Questions ──────────────────────────────────────────────
+  static const questionLabel = 'السؤال';
+  static const questionWriteHint = 'اكتب إجابتك...';
+  static const questionDrawFirst = 'يرجى الرسم أولاً! ✏️';
+  static const questionTraceInstruction = 'تتبع بعناية';
+  static const questionNoQuestions = 'لم يتم العثور على أسئلة.';
+  static const questionCorrect = 'إجابة صحيحة ✅';
+  static const questionWrong = 'إجابة خاطئة ❌';
+  static const quizDialogTitle = 'هل تريد حل الاختبار؟';
+  static const quizDialogContent = 'هل تريد حل الاختبار الآن؟';
+  static const quizDialogNo = 'لا';
+  static const quizDialogYes = 'نعم';
+
+  // ── Quiz ───────────────────────────────────────────────────
+  static const quizLoadingMsg = 'جارٍ تحضير الأسئلة... 🍳';
+  static const quizNoQuestions = 'لم يتم العثور على أسئلة.';
+  static const quizOutOfHearts = 'نفدت القلوب!';
+  static const quizOutOfHeartsMsg =
+      'لا تقلق، يمكنك تجربة هذا الدرس مجدداً.';
+  static const quizTryAgain = 'حاول مجدداً';
+  static const quizQuitTitle = 'الخروج من الاختبار؟';
+  static const quizQuitContent = 'ستفقد تقدمك في هذا الاختبار.';
+  static const quizKeepGoing = 'استمر';
+  static const quizQuit = 'خروج';
+
+  // ── Feedback panel ─────────────────────────────────────────
+  static const feedbackCorrect = 'صحيح!';
+  static const feedbackWrong = 'ليس تماماً!';
+  static String feedbackCorrectAnswer(String answer) =>
+      'الإجابة الصحيحة: $answer';
+
+  // ── Rewards ────────────────────────────────────────────────
+  static const rewardsBackHome = 'العودة للرئيسية';
+  static const rewardsComplete = 'اكتمل الاختبار!';
+  static const rewardsYourRewards = 'مكافآتك';
+  static const rewardsCompletePrompt =
+      'أكمل اختباراً لتكسب النجوم والنقاط!';
+  static const rewardsCorrect = 'صحيح';
+  static const rewardsScore = 'النتيجة';
+  static const rewardsXp = 'النقاط المكتسبة';
+
+  // ── Tracing ────────────────────────────────────────────────
+  static const tracingTitle = 'تدريب الكتابة';
+  static const tracingBanner = 'اتبع الخطوط المنقطة وتتبع كل حرف!';
+  static const tracingDrawFirst = 'ارسم شيئاً أولاً!';
+  static const tracingClear = 'مسح';
+  static const tracingCheck = 'تحقق من عملي';
+
+  // ── Login (extended) ───────────────────────────────────────
+  static const loginNoAccount = 'ليس لديك حساب؟';
+  static const loginCreateAccount = 'إنشاء حساب جديد';
+
+  // ── Role Selection ─────────────────────────────────────────
+  static const roleSelectTitle = 'اختر دورك';
+  static const roleSelectSubtitle = 'سجّل كـ...';
+  static const roleStudent = 'طالب';
+  static const roleParent = 'ولي أمر';
+  static const roleTeacher = 'معلم';
+
+  // ── Student Register ───────────────────────────────────────
+  static const studentRegTitle = 'تسجيل طالب';
+  static const studentName = 'اسم الطالب';
+  static const studentGradeLevel = 'المرحلة الدراسية';
+  static const studentSchool = 'المدرسة';
+  static const studentChooseAvatar = 'اختر الصورة الرمزية';
+  static const studentGradePrefix = 'الصف';
+
+  // ── Parent Register ────────────────────────────────────────
+  static const parentRegTitle = 'تسجيل ولي الأمر';
+  static const parentPhone = 'رقم الهاتف';
+
+  // ── Teacher Register ───────────────────────────────────────
+  static const teacherRegTitle = 'تسجيل معلم';
+  static const teacherName = 'اسم المعلم';
+  static const teacherSchool = 'المدرسة';
+  static const teacherSubject = 'المادة';
+  static const teacherSpecialization = 'التخصص';
+
+  // ── Teacher Dashboard ──────────────────────────────────────
+  static const teacherDashTitle = 'لوحة المعلم';
+  static const teacherDashWelcome = 'أهلاً، معلمنا الفاضل!';
+  static const teacherDashComingSoon = 'لوحة التحكم قيد التطوير';
+  static const teacherDashLogout = 'تسجيل الخروج';
+
+  // ── Common Register ────────────────────────────────────────
+  static const registerBtn = 'تسجيل';
+  static const registerFillFields = 'يرجى ملء جميع الحقول';
+  static const registerSuccess = 'تم التسجيل بنجاح!';
+  static const registerFailed = 'تعذر التسجيل. حاول مجدداً.';
+  static const fullNameHint = 'الاسم الكامل';
+}
