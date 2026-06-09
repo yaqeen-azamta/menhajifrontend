@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_strings.dart';
 import '../models/avatar_config.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../services/parent_progress_service.dart';
 import '../theme/theme.dart';
 import '../widgets/fat_button.dart';
@@ -85,6 +86,7 @@ class RewardsScreen extends StatefulWidget {
     this.correct = 0,
     this.total = 0,
     this.lessonId,
+    this.isTab = false,
   });
 
   final int stars;
@@ -92,6 +94,9 @@ class RewardsScreen extends StatefulWidget {
   final int correct;
   final int total;
   final String? lessonId;
+  // When true the screen is embedded as a nav tab — hides the back arrow
+  // and the bottom "return home" button which would conflict with the nav bar.
+  final bool isTab;
 
   @override
   State<RewardsScreen> createState() => _RewardsScreenState();
@@ -104,6 +109,10 @@ class _RewardsScreenState extends State<RewardsScreen>
   String _studentName = '';
   String? _savedAvatarId;
   bool _loading = true;
+
+  // Avatars that crossed their unlock threshold since the last visit.
+  // Populated in _load() and consumed by _scheduleUnlockNotifications().
+  List<AvatarDef> _newlyUnlocked = [];
 
   // ── animation controllers ──────────────────────────────────
   late final AnimationController _entryCtrl;
@@ -138,7 +147,14 @@ class _RewardsScreenState extends State<RewardsScreen>
       _savedAvatarId = prefs.getString('active_student_avatar');
 
       if (studentId != null) {
+        // Read cached points BEFORE fetching so we can diff for new unlocks.
+        final prevPts = prefs.getInt('cached_pts_$studentId') ?? 0;
+
         _progress = await ProgressService.instance.getSummary(studentId);
+
+        final newPts = _progress?.totalPoints ?? 0;
+        _newlyUnlocked = AvatarConfig.newlyUnlocked(prevPts, newPts);
+        await prefs.setInt('cached_pts_$studentId', newPts);
       }
     } on ApiException catch (_) {
       // degrade gracefully — show zeros
@@ -149,8 +165,85 @@ class _RewardsScreenState extends State<RewardsScreen>
     if (!mounted) return;
     setState(() => _loading = false);
     _entryCtrl.forward();
+    _scheduleUnlockNotifications();
     await Future.delayed(const Duration(milliseconds: 280));
     if (mounted) _arcCtrl.forward();
+  }
+
+  // ── Avatar unlock notifications ───────────────────────────
+  //
+  // Staggered SnackBars — one per newly unlocked avatar.
+  // The delay lets the entry animation finish before the first one appears.
+
+  void _scheduleUnlockNotifications() {
+    for (var i = 0; i < _newlyUnlocked.length; i++) {
+      final av = _newlyUnlocked[i];
+      Future.delayed(Duration(milliseconds: 900 + i * 1600), () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.avatarNewUnlock(av.name),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            backgroundColor: AppColors.gold,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        );
+      });
+    }
+  }
+
+  // ── Avatar selection ──────────────────────────────────────
+
+  Future<void> _onAvatarSelected(String avatarId) async {
+    if (_savedAvatarId == avatarId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            AppStrings.avatarAlreadyActive,
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          backgroundColor: AppColors.textSecondary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Optimistic update — reflect immediately in the UI.
+    setState(() => _savedAvatarId = avatarId);
+
+    // Persist locally + sync to backend (fire-and-forget).
+    await AuthService.instance.updateAvatar(avatarId);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            AppStrings.avatarChanged,
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
 
   void _back() => context.canPop() ? context.pop() : context.go('/home');
@@ -192,10 +285,13 @@ class _RewardsScreenState extends State<RewardsScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: _back,
-                    icon: const Icon(Icons.chevron_left, size: 28),
-                  ),
+                  if (!widget.isTab)
+                    IconButton(
+                      onPressed: _back,
+                      icon: const Icon(Icons.chevron_left, size: 28),
+                    )
+                  else
+                    const SizedBox(width: 48),
                   const Expanded(
                     child: Text(
                       AppStrings.rewardsYourRewards,
@@ -259,7 +355,11 @@ class _RewardsScreenState extends State<RewardsScreen>
                         const SizedBox(height: 16),
 
                         // Avatar collection
-                        _AvatarsCard(currentId: av.id, pts: pts),
+                        _AvatarsCard(
+                          currentId: av.id,
+                          pts: pts,
+                          onSelect: _onAvatarSelected,
+                        ),
                       ],
                     ),
                   ),
@@ -269,15 +369,17 @@ class _RewardsScreenState extends State<RewardsScreen>
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: FatButton(
-            label: AppStrings.rewardsBackHome,
-            onPressed: _back,
-          ),
-        ),
-      ),
+      bottomNavigationBar: widget.isTab
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                child: FatButton(
+                  label: AppStrings.rewardsBackHome,
+                  onPressed: _back,
+                ),
+              ),
+            ),
     );
   }
 }
@@ -944,9 +1046,14 @@ class _BadgeCard extends StatelessWidget {
 // Avatar collection card
 // ─────────────────────────────────────────────────────────────
 class _AvatarsCard extends StatelessWidget {
-  const _AvatarsCard({required this.currentId, required this.pts});
+  const _AvatarsCard({
+    required this.currentId,
+    required this.pts,
+    required this.onSelect,
+  });
   final String currentId;
   final int pts;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -970,6 +1077,15 @@ class _AvatarsCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 4),
+          const Text(
+            AppStrings.avatarSelectHint,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 10,
@@ -978,8 +1094,9 @@ class _AvatarsCard extends StatelessWidget {
                 .map(
                   (av) => _AvatarTile(
                     av: av,
-                    unlocked: pts >= av.unlockPoints,
+                    unlocked: av.isUnlocked(pts),
                     isCurrent: av.id == currentId,
+                    onSelect: onSelect,
                   ),
                 )
                 .toList(),
@@ -995,76 +1112,103 @@ class _AvatarTile extends StatelessWidget {
     required this.av,
     required this.unlocked,
     required this.isCurrent,
+    required this.onSelect,
   });
   final AvatarDef av;
   final bool unlocked, isCurrent;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: unlocked ? av.name : '${av.unlockPoints} نقطة للفتح',
-      child: SizedBox(
-        width: 58,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: unlocked
-                    ? (isCurrent
-                        ? const Color(0xFFFFF3E0)
-                        : const Color(0xFFFAF8EE))
-                    : const Color(0xFFEEEEEE),
-                border: Border.all(
-                  color: isCurrent
-                      ? AppColors.primary
-                      : unlocked
-                      ? const Color(0xFFE8DCC8)
-                      : const Color(0xFFDDDDDD),
-                  width: isCurrent ? 2.5 : 1.5,
+    return GestureDetector(
+      onTap: () {
+        if (!unlocked) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppStrings.avatarUnlockRequires(av.name, av.unlockPoints),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              backgroundColor: const Color(0xFF5C5C5C),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        } else {
+          onSelect(av.id);
+        }
+      },
+      child: Tooltip(
+        message: unlocked
+            ? av.name
+            : AppStrings.avatarUnlockRequires(av.name, av.unlockPoints),
+        child: SizedBox(
+          width: 58,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: unlocked
+                      ? (isCurrent
+                          ? const Color(0xFFFFF3E0)
+                          : const Color(0xFFFAF8EE))
+                      : const Color(0xFFEEEEEE),
+                  border: Border.all(
+                    color: isCurrent
+                        ? AppColors.primary
+                        : unlocked
+                        ? const Color(0xFFE8DCC8)
+                        : const Color(0xFFDDDDDD),
+                    width: isCurrent ? 2.5 : 1.5,
+                  ),
                 ),
-              ),
-              alignment: Alignment.center,
-              child: unlocked
-                  ? Text(av.emoji, style: const TextStyle(fontSize: 26))
-                  : Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Opacity(
-                          opacity: 0.25,
-                          child: Text(
-                            av.emoji,
-                            style: const TextStyle(fontSize: 26),
+                alignment: Alignment.center,
+                child: unlocked
+                    ? Text(av.emoji, style: const TextStyle(fontSize: 26))
+                    : Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Opacity(
+                            opacity: 0.25,
+                            child: Text(
+                              av.emoji,
+                              style: const TextStyle(fontSize: 26),
+                            ),
                           ),
-                        ),
-                        const Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Text(
-                            '🔒',
-                            style: TextStyle(fontSize: 13),
+                          const Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Text(
+                              '🔒',
+                              style: TextStyle(fontSize: 13),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              av.name,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: unlocked
-                    ? AppColors.textSecondary
-                    : const Color(0xFFCCCCCC),
+                        ],
+                      ),
               ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                unlocked ? av.name : AppStrings.avatarRequiredPoints(av.unlockPoints),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: unlocked
+                      ? (isCurrent ? AppColors.primary : AppColors.textSecondary)
+                      : const Color(0xFFBBBBBB),
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

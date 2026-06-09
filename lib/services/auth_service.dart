@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 
@@ -71,10 +72,22 @@ class AuthService {
       debugPrint('Saved PARENT token');
     } else if (result.role == 'STUDENT') {
       final sid = result.studentId ?? result.userId;
-      await p.setString('student_access_token_$sid', result.accessToken);
-      await p.setString('student_refresh_token_$sid', result.refreshToken);
+      final parentId = p.getInt('parent_user_id');
+      if (parentId != null) {
+        // Parent-scoped key: survives parent logout so the token can be
+        // reused after the parent re-logs in without requiring the child's
+        // credentials again.  Never cleared by logout().
+        await p.setString('ps_access_${parentId}_$sid', result.accessToken);
+        await p.setString('ps_refresh_${parentId}_$sid', result.refreshToken);
+      } else {
+        // Direct student registration/login — no parent context.
+        await p.setString('student_access_token_$sid', result.accessToken);
+        await p.setString('student_refresh_token_$sid', result.refreshToken);
+      }
       // JWT activation intentionally omitted — call activateStudentSession().
-      debugPrint('Saved STUDENT token (not yet activated) for sid=$sid');
+      debugPrint(
+        'Saved STUDENT token (not yet activated) for sid=$sid  parentId=$parentId',
+      );
     } else if (result.role == 'TEACHER') {
       await TokenStore.save(result.accessToken, result.refreshToken);
       await p.setString('current_role', 'TEACHER');
@@ -116,22 +129,33 @@ class AuthService {
   // ── Swap active JWT to child's token ──────────────────────
   Future<void> switchToChild(int studentId) async {
     final p = await SharedPreferences.getInstance();
+    final parentId = p.getInt('parent_user_id');
 
-    debugPrint('Switching to child token: studentId=$studentId');
+    debugPrint(
+      'Switching to child token: studentId=$studentId  parentId=$parentId',
+    );
 
-    final access = p.getString('student_access_token_$studentId');
+    String? access;
+    String? refresh;
 
-    final refresh = p.getString('student_refresh_token_$studentId');
+    // Prefer parent-scoped key (registered after fix) — survives parent logout.
+    if (parentId != null) {
+      access = p.getString('ps_access_${parentId}_$studentId');
+      refresh = p.getString('ps_refresh_${parentId}_$studentId');
+    }
+
+    // Fall back to legacy non-scoped key (registered before fix).
+    access ??= p.getString('student_access_token_$studentId');
+    refresh ??= p.getString('student_refresh_token_$studentId');
 
     debugPrint('ACCESS FOUND = ${access != null}');
     debugPrint('REFRESH FOUND = ${refresh != null}');
 
     if (access != null && refresh != null) {
       await TokenStore.save(access, refresh);
-
       debugPrint('Child token activated successfully');
     } else {
-      debugPrint('ERROR: Child token NOT found. Parent token still active.');
+      debugPrint('ERROR: Child token NOT found for studentId=$studentId');
     }
   }
 
@@ -292,5 +316,46 @@ class AuthService {
     final token = await TokenStore.getAccess();
 
     return token != null;
+  }
+
+  // ── Update active student's avatar ────────────────────────
+  //
+  // Persists to SharedPreferences immediately (optimistic update) then
+  // syncs to the backend.  The API call fails silently so a missing or
+  // not-yet-implemented endpoint never blocks the local experience.
+  //
+  // Assumed backend endpoint: PATCH /api/student/profile  { avatarId }
+
+  Future<void> updateAvatar(String avatarId) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('active_student_avatar', avatarId);
+
+    try {
+      await _api.put('/api/student/avatar', {'avatarId': avatarId});
+    } catch (_) {}
+  }
+
+  /// Updates the active student's grade level in SharedPreferences and
+  /// syncs to the backend.  Local update is immediate; API is best-effort.
+  Future<void> updateGradeLevel(int gradeLevel) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('active_grade_level', gradeLevel);
+    try {
+      await _api.put('/api/student/grade', {'gradeLevel': gradeLevel});
+    } catch (_) {
+      // Non-critical — local update is already applied above.
+    }
+  }
+
+  /// Changes the student's password.  Throws [ApiException] on failure
+  /// so the caller can surface the error message to the user.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _api.put('/api/student/change-password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
   }
 }

@@ -124,8 +124,13 @@ class QuestionRenderer extends StatelessWidget {
       case QuestionType.unknown:
         return _UnsupportedQuestion(question: question);
       case QuestionType.imageMcq:
-        // TODO: Handle this case.
-        throw UnimplementedError();
+        return McqQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
+      case QuestionType.reading:
+        return const SizedBox.shrink();
     }
   }
 }

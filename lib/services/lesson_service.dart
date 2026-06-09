@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -9,6 +10,7 @@ class SubjectModel {
   final int gradeLevel;
   final int totalLessons;
   final int completedLessons;
+  final String? coverImage;
 
   const SubjectModel({
     required this.id,
@@ -16,6 +18,7 @@ class SubjectModel {
     required this.gradeLevel,
     required this.totalLessons,
     required this.completedLessons,
+    this.coverImage,
   });
 
   factory SubjectModel.fromJson(Map<String, dynamic> j) => SubjectModel(
@@ -24,6 +27,7 @@ class SubjectModel {
     gradeLevel: j['gradeLevel'] as int? ?? 0,
     totalLessons: j['totalLessons'] as int? ?? 0,
     completedLessons: j['completedLessons'] as int? ?? 0,
+    coverImage: j['coverImage'] as String?,
   );
 }
 
@@ -35,6 +39,7 @@ class LessonSummaryModel {
   final String
   completionStatus; // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "MASTERED"
   final double masteryLevel;
+  final String? coverImage;
 
   const LessonSummaryModel({
     required this.id,
@@ -43,6 +48,7 @@ class LessonSummaryModel {
     required this.semesterNumber,
     required this.completionStatus,
     required this.masteryLevel,
+    this.coverImage,
   });
 
   factory LessonSummaryModel.fromJson(Map<String, dynamic> j) =>
@@ -53,6 +59,7 @@ class LessonSummaryModel {
         semesterNumber: j['semesterNumber'] as int? ?? 1,
         completionStatus: j['completionStatus'] as String? ?? 'NOT_STARTED',
         masteryLevel: (j['masteryLevel'] as num?)?.toDouble() ?? 0.0,
+        coverImage: j['coverImage'] as String?,
       );
 
   bool get isCompleted =>
@@ -72,6 +79,7 @@ class LessonDetailModel {
   final String subjectName;
   final int gradeLevel;
   final int totalQuestions;
+  final String? coverImage;
 
   const LessonDetailModel({
     required this.id,
@@ -86,6 +94,7 @@ class LessonDetailModel {
     required this.subjectName,
     required this.gradeLevel,
     required this.totalQuestions,
+    this.coverImage,
   });
 
   factory LessonDetailModel.fromJson(Map<String, dynamic> j) =>
@@ -106,6 +115,7 @@ class LessonDetailModel {
         subjectName: j['subjectName'] as String,
         gradeLevel: j['gradeLevel'] as int? ?? 0,
         totalQuestions: j['totalQuestions'] as int? ?? 0,
+        coverImage: j['coverImage'] as String?,
       );
 }
 
@@ -118,29 +128,36 @@ class LessonService {
 
   final _api = ApiClient.instance;
 
-  // GET /api/lessons/subjects?gradeLevel={grade}
-  Future<List<SubjectModel>> getSubjects(int gradeLevel) async {
-    final res = await _api.getQuery('/api/lessons/subjects', {
-      'gradeLevel': gradeLevel.toString(),
-    });
+  // GET /api/lessons/subjects?gradeLevel={grade}[&studentId={id}]
+  Future<List<SubjectModel>> getSubjects(int gradeLevel, {int? studentId}) async {
+    final params = <String, String>{'gradeLevel': gradeLevel.toString()};
+    if (studentId != null) params['studentId'] = studentId.toString();
+    debugPrint('LessonService.getSubjects gradeLevel=$gradeLevel studentId=$studentId');
+    final res = await _api.getQuery('/api/lessons/subjects', params);
     final list = res['data'] as List<dynamic>;
     return list
         .map((e) => SubjectModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  // GET /api/lessons/subject/{subjectId}
-  Future<List<LessonSummaryModel>> getLessonsBySubject(int subjectId) async {
-    final res = await _api.get('/api/lessons/subject/$subjectId');
+  // GET /api/lessons/subject/{subjectId}[?studentId={id}]
+  Future<List<LessonSummaryModel>> getLessonsBySubject(int subjectId, {int? studentId}) async {
+    final params = <String, String>{};
+    if (studentId != null) params['studentId'] = studentId.toString();
+    debugPrint('LessonService.getLessonsBySubject subjectId=$subjectId studentId=$studentId');
+    final res = await _api.getQuery('/api/lessons/subject/$subjectId', params);
     final list = res['data'] as List<dynamic>;
     return list
         .map((e) => LessonSummaryModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  // GET /api/lessons/{lessonId}
-  Future<LessonDetailModel> getLessonDetail(int lessonId) async {
-    final res = await _api.get('/api/lessons/$lessonId');
+  // GET /api/lessons/{lessonId}[?studentId={id}]
+  Future<LessonDetailModel> getLessonDetail(int lessonId, {int? studentId}) async {
+    final params = <String, String>{};
+    if (studentId != null) params['studentId'] = studentId.toString();
+    debugPrint('LessonService.getLessonDetail lessonId=$lessonId studentId=$studentId');
+    final res = await _api.getQuery('/api/lessons/$lessonId', params);
     return LessonDetailModel.fromJson(res['data'] as Map<String, dynamic>);
   }
 
@@ -159,8 +176,10 @@ class LessonService {
     return data['audioUrl'] as String?;
   }
 
-  // POST /api/progress/lesson/{lessonId}/complete
-  Future<void> completeLesson(int lessonId) async {
-    await _api.post('/api/progress/lesson/$lessonId/complete', {});
+  // POST /api/progress/lesson/{lessonId}/complete[?studentId={id}]
+  Future<void> completeLesson(int lessonId, {int? studentId}) async {
+    final query = studentId != null ? '?studentId=$studentId' : '';
+    debugPrint('LessonService.completeLesson lessonId=$lessonId studentId=$studentId');
+    await _api.post('/api/progress/lesson/$lessonId/complete$query', {});
   }
 }

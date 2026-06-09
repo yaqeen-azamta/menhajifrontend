@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../l10n/app_strings.dart';
-import '../models/avatar_config.dart';
 import '../services/api_client.dart';
+import '../widgets/avatar_picker_widget.dart';
 import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/fat_button.dart';
@@ -283,42 +283,13 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
   }
 
   Widget _avatarGrid() {
-    final avatars = AvatarConfig.all;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1,
-      ),
-      itemCount: avatars.length,
-      itemBuilder: (_, i) {
-        final av = avatars[i];
-        final selected = _avatarId == av.id;
-        return GestureDetector(
-          onTap: () => setState(() => _avatarId = av.id),
-          child: Container(
-            decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.secondary.withValues(alpha: 0.15)
-                  : const Color(0xFFF0F6FB),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? AppColors.secondary : const Color(0xFFE8DCC8),
-                width: 2.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                av.emoji,
-                style: const TextStyle(fontSize: 26),
-              ),
-            ),
-          ),
-        );
-      },
+    // New students have 0 points — only rabbit is free by default.
+    // AvatarPickerWidget enforces the lock and shows a snackbar
+    // when a locked avatar is tapped.
+    return AvatarPickerWidget(
+      selectedId: _avatarId,
+      userPoints: 0,
+      onSelect: (id) => setState(() => _avatarId = id),
     );
   }
 }

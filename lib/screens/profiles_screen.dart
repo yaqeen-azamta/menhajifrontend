@@ -9,6 +9,7 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/parent_progress_service.dart';
 import '../theme/theme.dart';
+import '../widgets/avatar_picker_widget.dart';
 import '../widgets/fat_button.dart';
 
 class ProfilesScreen extends StatefulWidget {
@@ -241,33 +242,12 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: AvatarConfig.all.map((a) {
-                    final sel = avatarId == a.id;
-                    return GestureDetector(
-                      onTap: () => setS(() => avatarId = a.id),
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: sel
-                              ? const Color(0xFFFFF3E0)
-                              : const Color(0xFFFAF8EE),
-                          border: sel
-                              ? Border.all(color: AppColors.primary, width: 2)
-                              : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          a.emoji,
-                          style: const TextStyle(fontSize: 28),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                // New children have 0 points — only rabbit is free.
+                // AvatarPickerWidget enforces locks and shows snackbars.
+                AvatarPickerWidget(
+                  selectedId: avatarId,
+                  userPoints: 0,
+                  onSelect: (id) => setS(() => avatarId = id),
                 ),
 
                 if (err != null)
@@ -318,7 +298,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                           try {
                             // POST /api/auth/register  role=STUDENT
                             // Response includes child's own accessToken
-                            // _persist() saves it as student_access_token_{userId}
+                            // _persist() saves it as ps_access_{parentId}_{studentId}
                             final result = await AuthService.instance.register(
                               fullName: name,
                               email: email,

@@ -110,6 +110,22 @@ class VoiceService {
     return true;
   }
 
+  // ── Stop recording without uploading ─────────────────────
+  //
+  // Returns the recorded File so the caller can upload it to any endpoint.
+  // The caller is responsible for deleting the file when done.
+  // Returns null if no recording was active or the file could not be found.
+
+  Future<File?> stopRecording() async {
+    final path = await _recorder.stop();
+    final filePath = path ?? _recordingPath;
+    _recordingPath = null;
+    if (filePath == null) return null;
+    final file = File(filePath);
+    if (!await file.exists()) return null;
+    return file;
+  }
+
   // ── STT: stop recording and transcribe ────────────────────
   //
   // Uses your backend: POST /api/quiz/attempt/{attemptId}/voice-answer

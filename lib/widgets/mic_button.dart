@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../state/voice_service.dart';
+import '../services/voice_service.dart';
 import '../theme/theme.dart';
 
 class MicButton extends StatefulWidget {

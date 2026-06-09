@@ -162,7 +162,7 @@ class TracingCanvasState extends State<TracingCanvasWidget> {
                         opacity: 0.35,
 
                         child: Image.network(
-                          'http://10.0.2.2:8080${widget.question.imageUrl!}',
+                          'http://192.168.0.192:8080${widget.question.imageUrl!}',
 
                           fit: BoxFit.contain,
 

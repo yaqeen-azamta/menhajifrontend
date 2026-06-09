@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_strings.dart';
 import '../services/lesson_service.dart';
@@ -38,10 +39,13 @@ class _PathScreenState extends State<PathScreen> {
         throw Exception('Missing subjectId');
       }
 
-      debugPrint('Loading lessons for subjectId=$subjectId');
+      final prefs = await SharedPreferences.getInstance();
+      final studentId = prefs.getInt('active_student_id');
+      debugPrint('PathScreen: loading lessons subjectId=$subjectId studentId=$studentId');
 
       final lessons = await LessonService.instance.getLessonsBySubject(
         subjectId,
+        studentId: studentId,
       );
 
       debugPrint('LESSONS LOADED = ${lessons.length}');

@@ -72,6 +72,7 @@ class SubjectMasteryModel {
   final int totalLessons;
   final int lessonsCompleted;
   final double averageMastery;
+  final String? coverImage;
 
   const SubjectMasteryModel({
     required this.subjectId,
@@ -79,6 +80,7 @@ class SubjectMasteryModel {
     required this.totalLessons,
     required this.lessonsCompleted,
     required this.averageMastery,
+    this.coverImage,
   });
 
   factory SubjectMasteryModel.fromJson(Map<String, dynamic> j) =>
@@ -88,6 +90,7 @@ class SubjectMasteryModel {
         totalLessons: j['totalLessons'] as int? ?? 0,
         lessonsCompleted: j['lessonsCompleted'] as int? ?? 0,
         averageMastery: (j['averageMastery'] as num?)?.toDouble() ?? 0.0,
+        coverImage: j['coverImage'] as String?,
       );
 
   // Map backend subject name → local theme key

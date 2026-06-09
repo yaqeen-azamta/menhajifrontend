@@ -76,10 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
           debugPrint('ERROR: active_student_id == parentId — redirecting');
           await prefs.remove('active_student_id');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text(AppStrings.homeSelectChild),
-              backgroundColor: Colors.orange,
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(AppStrings.homeSelectChild),
+                backgroundColor: Colors.orange,
+              ),
+            );
             context.go('/profiles');
           }
           return;
@@ -93,7 +95,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // ── Load subjects for current grade ────────────────────
       final grade = prefs.getInt('active_grade_level') ?? 1;
-      final subjects = await LessonService.instance.getSubjects(grade);
+      debugPrint(
+        'HomeScreen: loading subjects grade=$grade studentId=$_studentId',
+      );
+      final subjects = await LessonService.instance.getSubjects(
+        grade,
+        studentId: _studentId,
+      );
+      debugPrint('========== SUBJECTS ==========');
+
+      for (final s in subjects) {
+        debugPrint(
+          'SUBJECT=${s.name} completed=${s.completedLessons} total=${s.totalLessons}',
+        );
+      }
+
+      debugPrint('==============================');
 
       // ── Build lightweight child object ─────────────────────
       final child = ChildDetailModel(
@@ -108,20 +125,28 @@ class _HomeScreenState extends State<HomeScreen> {
         totalQuizzesTaken: summary.totalQuizzesTaken,
         averageQuizScore: summary.averageQuizScore,
         overallMastery: summary.overallMastery,
-        subjectBreakdown: subjects.map((s) => SubjectMasteryModel(
-          subjectId: s.id,
-          subjectName: s.name,
-          totalLessons: s.totalLessons,
-          lessonsCompleted: s.completedLessons,
-          averageMastery: 0,
-        )).toList(),
+        subjectBreakdown: subjects
+            .map(
+              (s) => SubjectMasteryModel(
+                subjectId: s.id,
+                subjectName: s.name,
+                totalLessons: s.totalLessons,
+                lessonsCompleted: s.completedLessons,
+                averageMastery: 0,
+                coverImage: s.coverImage,
+              ),
+            )
+            .toList(),
       );
 
       // ── Find first incomplete lesson ───────────────────────
       LessonSummaryModel? nextLesson;
       for (final s in subjects) {
         if (s.completedLessons < s.totalLessons) {
-          final lessons = await LessonService.instance.getLessonsBySubject(s.id);
+          final lessons = await LessonService.instance.getLessonsBySubject(
+            s.id,
+            studentId: _studentId,
+          );
           for (final l in lessons) {
             if (!l.isCompleted) {
               nextLesson = l;
@@ -143,11 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
         await prefs.remove('active_student_id');
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(AppStrings.homeSessionExpired),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppStrings.homeSessionExpired),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
 
           if (_isDirectStudent) {
             // Direct student: clear everything and return to login.
@@ -487,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       spacing: 12,
                       runSpacing: 12,
                       children: child.subjectBreakdown.map((s) {
-                        final w = (MediaQuery.of(context).size.width - 60) / 3;
+                        final w = (MediaQuery.of(context).size.width - 64) / 2;
                         return SizedBox(
                           width: w,
                           child: _SubjectCard(
@@ -496,6 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             emoji: s.emoji,
                             total: s.totalLessons,
                             done: s.lessonsCompleted,
+                            coverImage: s.coverImage,
                             onTap: () => context.push(
                               '/path?subject=${s.key}&subjectId=${s.subjectId}',
                             ),
@@ -506,26 +534,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
 
                 const SizedBox(height: 24),
-
-                // ── BOTTOM BUTTONS ────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      FatButton(
-                        label: AppStrings.homeLessonPath,
-                        color: FatColor.secondary,
-                        onPressed: () => context.push('/path'),
-                      ),
-                      const SizedBox(height: 12),
-                      FatButton(
-                        label: AppStrings.homeMyRewards,
-                        color: FatColor.gold,
-                        onPressed: () => context.push('/rewards'),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -568,10 +576,12 @@ class _SubjectCard extends StatelessWidget {
     required this.total,
     required this.done,
     required this.onTap,
+    this.coverImage,
   });
 
   final String subjectKey, label, emoji;
   final int total, done;
+  final String? coverImage;
   final VoidCallback onTap;
 
   @override
@@ -580,29 +590,31 @@ class _SubjectCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE8DCC8), width: 2),
         ),
         child: Column(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: bg,
-                shape: BoxShape.circle,
-                border: Border(bottom: BorderSide(color: sh, width: 4)),
-              ),
-              alignment: Alignment.center,
-              child: Text(emoji, style: const TextStyle(fontSize: 28)),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: coverImage != null && coverImage!.isNotEmpty
+                  ? Image.network(
+                      coverImage!.startsWith('http')
+                          ? coverImage!
+                          : 'http://192.168.0.192:8080$coverImage',
+                      width: double.infinity,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    )
+                  : _placeholder(bg, sh),
             ),
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -610,7 +622,7 @@ class _SubjectCard extends StatelessWidget {
             Text(
               AppStrings.homeLessonsDone(done, total),
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
@@ -618,6 +630,19 @@ class _SubjectCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _placeholder(Color bg, Color sh) {
+    return Container(
+      width: double.infinity,
+      height: 80,
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(bottom: BorderSide(color: sh, width: 4)),
+      ),
+      alignment: Alignment.center,
+      child: Text(emoji, style: const TextStyle(fontSize: 32)),
     );
   }
 }

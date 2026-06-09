@@ -10,6 +10,7 @@ enum QuestionType {
   trueFalse,
   fillBlank,
   voiceAnswer,
+  reading,
   imageMatch,
   dragDrop,
   reorderWords,
@@ -70,6 +71,9 @@ enum QuestionType {
       case 'write':
       case 'text':
         return QuestionType.writeAnswer;
+
+      case 'reading':
+        return QuestionType.reading;
 
       default:
         return QuestionType.unknown;

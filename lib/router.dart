@@ -10,7 +10,11 @@ import 'screens/parent_register_screen.dart';
 import 'screens/teacher_register_screen.dart';
 import 'screens/teacher_dashboard_screen.dart';
 import 'screens/profiles_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/change_avatar_screen.dart';
+import 'screens/change_grade_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/main_navigation_screen.dart';
+import 'screens/reading_screen.dart';
 import 'screens/path_screen.dart';
 import 'screens/lesson_screen.dart';
 import 'screens/question_screen.dart';
@@ -58,7 +62,10 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/profiles', builder: (ctx, st) => const ProfilesScreen()),
 
       // ── Student ────────────────────────────────────────────────
-      GoRoute(path: '/home', builder: (ctx, st) => const HomeScreen()),
+      GoRoute(
+        path: '/home',
+        builder: (ctx, st) => const MainNavigationScreen(),
+      ),
 
       GoRoute(
         path: '/path',
@@ -100,6 +107,37 @@ GoRouter buildRouter(WidgetRef ref) {
         },
       ),
 
+      // ── Settings sub-screens ───────────────────────────────────
+      GoRoute(
+        path: '/change-avatar',
+        builder: (_, _) => const ChangeAvatarScreen(),
+      ),
+      GoRoute(
+        path: '/change-grade',
+        builder: (_, _) => const ChangeGradeScreen(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (_, _) => const ChangePasswordScreen(),
+      ),
+
+      // ── Reading Assessment ─────────────────────────────────────
+      // `extra` carries the reading text forwarded by QuestionScreen so that
+      // ReadingScreen can skip the GET /api/reading/lesson/{id} call and use
+      // the question's own text directly.
+      GoRoute(
+        path: '/reading/:lessonId',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>;
+
+          return ReadingScreen(
+            lessonId: state.pathParameters['lessonId']!,
+            readingText: extra['text'] as String?,
+            questionId: extra['questionId'] as int,
+            onComplete: extra['onComplete'] as void Function()?,
+          );
+        },
+      ),
       // ── Tracing ────────────────────────────────────────────────
       GoRoute(
         path: '/tracing',

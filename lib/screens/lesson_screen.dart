@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_strings.dart';
 import '../services/lesson_service.dart';
@@ -46,8 +47,10 @@ class _LessonScreenState extends State<LessonScreen> {
     }
 
     try {
-      // GET /api/lessons/{lessonId}
-      final lesson = await LessonService.instance.getLessonDetail(id);
+      final prefs = await SharedPreferences.getInstance();
+      final studentId = prefs.getInt('active_student_id');
+      debugPrint('LessonScreen: loading lesson id=$id studentId=$studentId');
+      final lesson = await LessonService.instance.getLessonDetail(id, studentId: studentId);
       setState(() => _lesson = lesson);
     } catch (e) {
       setState(() => _error = e.toString());

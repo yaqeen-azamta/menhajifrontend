@@ -6,9 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Change this to your actual server address.
-/// For Android emulator use http://10.0.2.2:8080
+
 /// For iOS simulator or web use http://localhost:8080
-const String kBaseUrl = 'http://10.0.2.2:8080';
+const String kBaseUrl = 'http://192.168.0.192:8080';
 
 // ─────────────────────────────────────────────────────────────
 // Token storage helpers
@@ -160,10 +160,32 @@ class ApiClient {
       if (refreshRes.statusCode >= 200 && refreshRes.statusCode < 300) {
         final body = jsonDecode(refreshRes.body) as Map<String, dynamic>;
         final data = body['data'] as Map<String, dynamic>;
-        await TokenStore.save(
-          data['accessToken'] as String,
-          data['refreshToken'] as String,
-        );
+        final newAccess = data['accessToken'] as String;
+        final newRefresh = data['refreshToken'] as String;
+
+        await TokenStore.save(newAccess, newRefresh);
+
+        // If this was a student token, also update the parent-scoped backup key
+        // so that future switchToChild() calls use the fresh tokens.
+        final role = data['role']?.toString();
+        if (role == 'STUDENT') {
+          final p = await SharedPreferences.getInstance();
+          final parentId = p.getInt('parent_user_id');
+          if (parentId != null) {
+            final rawSid = data['studentId'] ?? data['userId'];
+            final sid = rawSid is int
+                ? rawSid
+                : (rawSid is double ? rawSid.toInt() : null);
+            if (sid != null) {
+              await p.setString('ps_access_${parentId}_$sid', newAccess);
+              await p.setString('ps_refresh_${parentId}_$sid', newRefresh);
+              debugPrint(
+                'API: updated ps_access_${parentId}_$sid after token refresh',
+              );
+            }
+          }
+        }
+
         debugPrint('API: token refreshed — retrying request');
         final freshHeaders = await _headers();
         return _parse(await fn(freshHeaders));
@@ -188,13 +210,12 @@ class ApiClient {
   // ───────────────────────────────────────────────────────────
   // POST JSON
   // ───────────────────────────────────────────────────────────
-
+  // POST
   Future<Map<String, dynamic>> post(
     String path,
     Map<String, dynamic> body, {
     bool auth = true,
   }) async {
-    // Unauthenticated calls (login / register) never need a refresh.
     if (!auth) {
       final res = await _client.post(
         Uri.parse('$kBaseUrl$path'),
@@ -206,6 +227,17 @@ class ApiClient {
 
     return _withRefresh(
       (h) => _client.post(
+        Uri.parse('$kBaseUrl$path'),
+        headers: h,
+        body: jsonEncode(body),
+      ),
+    );
+  }
+
+  // PUT  ← برا post بالكامل
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) {
+    return _withRefresh(
+      (h) => _client.put(
         Uri.parse('$kBaseUrl$path'),
         headers: h,
         body: jsonEncode(body),

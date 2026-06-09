@@ -166,7 +166,8 @@ class _MatchCard extends StatelessWidget {
   });
 
   final MatchPair pair;
-  final bool isSelected, isMatched;
+  final bool isSelected;
+  final bool isMatched;
   final Color? color;
   final VoidCallback onTap;
 
@@ -174,60 +175,95 @@ class _MatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final highlight = color ?? AppColors.secondary;
 
+    final hasImage = pair.imageUrl != null && pair.imageUrl!.trim().isNotEmpty;
+
     return GestureDetector(
       onTap: isMatched ? null : onTap,
-      child: AnimatedContainer(
+      child: AnimatedScale(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isMatched
-              ? highlight.withValues(alpha: 0.15)
-              : isSelected
-              ? const Color(0xFFE6F6FE)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isMatched
-                ? highlight
-                : isSelected
-                ? AppColors.secondary
-                : const Color(0xFFE5E5E5),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isMatched ? highlight : const Color(0xFFE5E5E5),
-              offset: const Offset(0, 3),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            if (pair.imageUrl != null && pair.imageUrl!.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  pair.imageUrl!,
-                  height: 70,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, stack) => const SizedBox(height: 70),
-                ),
-              ),
-            if (pair.text != null && pair.text!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  pair.text!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+        curve: Curves.easeOut,
+        scale: isSelected ? 1.08 : 1.0,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasImage)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      if (isSelected || isMatched)
+                        BoxShadow(
+                          color: highlight.withOpacity(0.35),
+                          blurRadius: 25,
+                          spreadRadius: 4,
+                        ),
+                    ],
+                  ),
+                  child: Image.network(
+                    pair.imageUrl!,
+                    height: 170,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) {
+                        return child;
+                      }
+
+                      return const SizedBox(
+                        height: 170,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                    errorBuilder: (ctx, err, stack) {
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ),
-              ),
-          ],
+
+              if (pair.text != null && pair.text!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: hasImage
+                      ? null
+                      : BoxDecoration(
+                          color: isMatched
+                              ? highlight.withOpacity(0.15)
+                              : isSelected
+                              ? const Color(0xFFE6F6FE)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isMatched
+                                ? highlight
+                                : isSelected
+                                ? AppColors.secondary
+                                : const Color(0xFFE5E5E5),
+                            width: 2,
+                          ),
+                        ),
+                  child: Text(
+                    pair.text!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      color: isMatched ? highlight : Colors.black87,
+                    ),
+                  ),
+                ),
+
+              if (isMatched && hasImage)
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  child: Icon(Icons.check_circle, color: highlight, size: 26),
+                ),
+            ],
+          ),
         ),
       ),
     );

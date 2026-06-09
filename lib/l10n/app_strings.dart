@@ -195,4 +195,60 @@ class AppStrings {
   static const registerSuccess = 'تم التسجيل بنجاح!';
   static const registerFailed = 'تعذر التسجيل. حاول مجدداً.';
   static const fullNameHint = 'الاسم الكامل';
+
+  // ── Avatar ─────────────────────────────────────────────────
+  /// Label shown under an available-but-not-chosen avatar.
+  static const avatarAvailable = '✅ متاح';
+  /// Label shown under the currently active avatar.
+  static const avatarSelected = '✓ مختار';
+  /// Label shown under a locked avatar: "🔒 200 نقطة"
+  static String avatarRequiredPoints(int pts) => '🔒 $pts نقطة';
+  /// Full snackbar copy when a locked avatar is tapped.
+  static String avatarUnlockRequires(String name, int pts) =>
+      'اجمع $pts نقطة لفتح $name';
+  /// Snackbar when a new avatar is unlocked via point accumulation.
+  static String avatarNewUnlock(String name) => '🎉 تم فتح شخصية جديدة: $name!';
+  /// Snackbar after successfully changing the active avatar.
+  static const avatarChanged = '✅ تم تغيير الصورة الرمزية';
+  /// Snackbar when the user taps the avatar they already have.
+  static const avatarAlreadyActive = 'هذه هي صورتك الرمزية الحالية';
+  /// Subtitle inside the avatar collection card.
+  static const avatarSelectHint = 'اضغط على شخصية مفتوحة لاختيارها';
+
+  // ── Reading Assessment ─────────────────────────────────────
+  static const readingTitle = 'تقييم القراءة';
+  static const readingInstruction = 'اقرأ الفقرة التالية بصوت عالٍ:';
+  static const readingStart = 'ابدأ القراءة 🎙️';
+  static const readingStop = 'إيقاف التسجيل ⏹';
+  static const readingProcessing = 'جارٍ تحليل قراءتك...';
+  static const readingTryAgain = 'حاول مجدداً 🔄';
+  static const readingAccuracyLabel = 'دقة القراءة';
+  static const readingResultTitle = 'تفاصيل القراءة';
+  static const readingOriginalLabel = 'النص الأصلي';
+  static const readingRecognizedLabel = 'ما سمعته';
+  static const readingWordCorrect = 'صحيح';
+  static const readingWordIncorrect = 'خطأ';
+  static const readingWordMissing = 'مفقود';
+  static const readingPermissionDenied =
+      'يرجى السماح بالوصول إلى الميكروفون لتتمكن من القراءة.';
+  static const readingNoText = 'لم يتم تحديد نص للقراءة. يرجى المحاولة مجدداً.';
+  static const readingUploadError =
+      'حدث خطأ أثناء تحليل قراءتك. يرجى المحاولة مجدداً.';
+  static const readingLoadError =
+      'تعذر تحميل نص القراءة. يرجى المحاولة مجدداً.';
+  static String readingAccuracyPct(int pct) => '$pct%';
+  static String readingTimer(String mm, String ss) => '$mm:$ss';
+  // Grade labels shown beneath the accuracy arc
+  // Feedback tiers match PronunciationService.feedbackFor():
+  //   ≥ 90 → Excellent  |  ≥ 70 → Good  |  ≥ 50 → Needs Work  |  < 50 → Try Again
+  static const readingGradeExcellent  = 'ممتاز! 🌟';
+  static const readingGradeGood       = 'جيد! 👍';
+  static const readingGradeNeedsWork  = 'يحتاج تحسين 💪';
+  static const readingGradeTryAgain   = 'حاول مرة أخرى ⚡';
+
+  // ── Letter-level analysis section ─────────────────────────
+  static const readingLetterAnalysisTitle  = 'تحليل الحروف';
+  static const readingWrongLettersLabel    = 'أخطاء النطق';
+  static const readingMissingLettersLabel  = 'حروف مفقودة';
+  static const readingExtraLettersLabel    = 'حروف زائدة';
 }

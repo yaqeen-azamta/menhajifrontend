@@ -6,7 +6,8 @@
       "Read(//Users/mac/IdeaProjects/**)",
       "Bash(xargs ls -la)",
       "Bash(./gradlew compileJava --info)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(dart analyze *)"
     ],
     "additionalDirectories": [
       "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/entity/enums",
