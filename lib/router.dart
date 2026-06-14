@@ -15,6 +15,7 @@ import 'screens/change_password_screen.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/reading_screen.dart';
 import 'screens/path_screen.dart';
+import 'screens/lesson_completion_screen.dart';
 import 'screens/lesson_screen.dart';
 import 'screens/question_screen.dart';
 import 'screens/quiz_screen.dart' as quiz;
@@ -89,6 +90,12 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
 
       GoRoute(
+        path: '/lesson-complete/:id',
+        builder: (_, state) =>
+            LessonCompletionScreen(lessonId: state.pathParameters['id']!),
+      ),
+
+      GoRoute(
         path: '/quiz/:id',
         builder: (_, state) =>
             quiz.QuizScreen(lessonId: state.pathParameters['id']!),
@@ -136,6 +143,7 @@ GoRouter buildRouter(WidgetRef ref) {
             readingText: extra['text'] as String?,
             questionId: extra['questionId'] as int,
             onComplete: extra['onComplete'] as void Function()?,
+            studentId: extra['studentId'] as int?,
           );
         },
       ),

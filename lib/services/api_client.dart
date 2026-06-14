@@ -165,8 +165,8 @@ class ApiClient {
 
         await TokenStore.save(newAccess, newRefresh);
 
-        // If this was a student token, also update the parent-scoped backup key
-        // so that future switchToChild() calls use the fresh tokens.
+        // Keep role-specific backup keys in sync so that switchToParent() /
+        // switchToChild() never restore a stale token into TokenStore.
         final role = data['role']?.toString();
         if (role == 'STUDENT') {
           final p = await SharedPreferences.getInstance();
@@ -184,6 +184,14 @@ class ApiClient {
               );
             }
           }
+        } else if (role == 'PARENT') {
+          // Without this, switchToParent() would restore the old expired token
+          // from parent_access_token into TokenStore, causing an immediate 401
+          // on the next HomeScreen load.
+          final p = await SharedPreferences.getInstance();
+          await p.setString('parent_access_token', newAccess);
+          await p.setString('parent_refresh_token', newRefresh);
+          debugPrint('API: updated parent_access_token after token refresh');
         }
 
         debugPrint('API: token refreshed — retrying request');

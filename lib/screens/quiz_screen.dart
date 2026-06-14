@@ -23,6 +23,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_strings.dart';
 import '../models/adaptive_quiz_models.dart';
@@ -47,6 +48,9 @@ class _QuizScreenState extends State<QuizScreen> {
 
   // ── Quiz data ────────────────────────────────────────────────
   AdaptiveQuizPayload? _payload;
+
+  // ── Active child studentId (non-null only in parent mode) ────
+  int? _studentId;
 
   // ── Current question ─────────────────────────────────────────
   int _idx = 0;
@@ -99,9 +103,13 @@ class _QuizScreenState extends State<QuizScreen> {
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    _studentId = prefs.getInt('active_student_id');
+    debugPrint('[QuizScreen] activeStudentId=$_studentId lessonId=$lessonId');
+
     try {
-      final payload =
-          await AdaptiveQuizService.instance.generateOrResume(lessonId);
+      final payload = await AdaptiveQuizService.instance
+          .generateOrResume(lessonId, studentId: _studentId);
 
       if (payload.questions.isEmpty) {
         setState(() {
@@ -301,6 +309,7 @@ class _QuizScreenState extends State<QuizScreen> {
         payload.attemptId,
         answers,
         total,
+        studentId: _studentId,
       );
 
       if (!mounted) return;

@@ -168,6 +168,9 @@ class AuthService {
 
     if (access != null && refresh != null) {
       await TokenStore.save(access, refresh);
+      // Keep current_role in sync so HomeScreen.getCurrentRole() returns
+      // 'PARENT' and correctly passes studentId as a query param.
+      await p.setString('current_role', 'PARENT');
     }
   }
 

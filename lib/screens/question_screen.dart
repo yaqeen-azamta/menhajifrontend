@@ -32,6 +32,9 @@ class _QuestionScreenState extends State<QuestionScreen> {
   bool _tracingCompleted = false;
   bool _readingCompleted = false;
 
+  // Set when opened via parent mode; null in direct-student mode.
+  int? _activeStudentId;
+
   // Hint state — reset each time the question advances.
   int _hintLevel = 0;       // 0 = no hint fetched yet for this question
   int _remainingHints = 99; // sentinel meaning "unknown — assume available"
@@ -81,6 +84,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    _activeStudentId = prefs.getInt('active_student_id');
+    debugPrint('[QuestionScreen] activeStudentId=$_activeStudentId lessonId=$id');
+
     try {
       print('🚀 BEFORE SERVICE');
 
@@ -110,58 +117,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
         );
       } catch (_) {}
     }
-    await _showQuizDialog();
-  }
-
-  Future<void> _showQuizDialog() async {
-    if (!mounted) return;
-
-    final take = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          AppStrings.quizDialogTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: const Text(
-          AppStrings.quizDialogContent,
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              AppStrings.quizDialogNo,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              AppStrings.quizDialogYes,
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted) return;
-    if (take == true) {
-      context.go('/quiz/${widget.lessonId}');
-    } else {
-      context.go('/home');
-    }
+    if (mounted) context.go('/lesson-complete/${widget.lessonId}');
   }
 
   // ── Answer handling ───────────────────────────────────────────────────────
@@ -184,6 +140,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
           lessonId: int.parse(widget.lessonId),
           answer: 'TRACED',
           questionType: 'TRACING',
+          studentId: _activeStudentId,
         );
       } catch (_) {}
       _advance();
@@ -208,6 +165,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
         lessonId: int.parse(widget.lessonId),
         answer: _selectedAnswer!,
         questionType: q.type ?? '',
+        studentId: _activeStudentId,
       );
       debugPrint(
         '     Result: isCorrect=${result.isCorrect} points=${result.pointsAwarded}',
@@ -233,12 +191,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
         ? q.correctAnswer!
         : q.questionText;
     _readingCompleted = false;
-    debugPrint('[QuestionScreen] pushing /reading/${widget.lessonId} — readingText="$readingText"');
+    debugPrint('[QuestionScreen] pushing /reading/${widget.lessonId} — readingText="$readingText" activeStudentId=$_activeStudentId');
     await context.push(
       '/reading/${widget.lessonId}',
       extra: {
         'text': readingText,
         'questionId': q.id,
+        'studentId': _activeStudentId,
         'onComplete': () {
           debugPrint('[QuestionScreen] onComplete callback INVOKED — setting _readingCompleted=true');
           _readingCompleted = true;
@@ -285,6 +244,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
         lessonId: int.parse(widget.lessonId),
         answer: 'TRACED',
         questionType: 'TRACING',
+        studentId: _activeStudentId,
       );
     } catch (_) {}
     if (mounted) _advance();

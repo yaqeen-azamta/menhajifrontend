@@ -5,7 +5,7 @@ class AppStrings {
   AppStrings._();
 
   // ── General ────────────────────────────────────────────────
-  static const appName = 'منهاجي';
+
   static const retry = 'إعادة المحاولة';
   static const goBack = 'رجوع';
   static const continueBtn = 'متابعة';
@@ -81,10 +81,7 @@ class AppStrings {
   static String homeLessonsDone(int done, int total) => '$done/$total مكتمل';
 
   // ── Path ───────────────────────────────────────────────────
-  static const pathTitle = '🗺 مسار الدروس';
-  static const pathMath = '🔢 مسار الرياضيات';
-  static const pathReading = '📖 مسار القراءة';
-  static const pathScience = '🔬 مسار العلوم';
+
   static const pathNoLessons = 'لا توجد دروس متاحة بعد.';
   static const pathCompleted = 'مكتمل';
   static const pathTapToStart = 'اضغط للبدء!';
@@ -134,8 +131,7 @@ class AppStrings {
   static const quizLoadingMsg = 'جارٍ تحضير الأسئلة... 🍳';
   static const quizNoQuestions = 'لم يتم العثور على أسئلة.';
   static const quizOutOfHearts = 'نفدت القلوب!';
-  static const quizOutOfHeartsMsg =
-      'لا تقلق، يمكنك تجربة هذا الدرس مجدداً.';
+  static const quizOutOfHeartsMsg = 'لا تقلق، يمكنك تجربة هذا الدرس مجدداً.';
   static const quizTryAgain = 'حاول مجدداً';
   static const quizQuitTitle = 'الخروج من الاختبار؟';
   static const quizQuitContent = 'ستفقد تقدمك في هذا الاختبار.';
@@ -152,8 +148,7 @@ class AppStrings {
   static const rewardsBackHome = 'العودة للرئيسية';
   static const rewardsComplete = 'اكتمل الاختبار!';
   static const rewardsYourRewards = 'مكافآتك';
-  static const rewardsCompletePrompt =
-      'أكمل اختباراً لتكسب النجوم والنقاط!';
+  static const rewardsCompletePrompt = 'أكمل اختباراً لتكسب النجوم والنقاط!';
   static const rewardsCorrect = 'صحيح';
   static const rewardsScore = 'النتيجة';
   static const rewardsXp = 'النقاط المكتسبة';
@@ -211,19 +206,26 @@ class AppStrings {
   // ── Avatar ─────────────────────────────────────────────────
   /// Label shown under an available-but-not-chosen avatar.
   static const avatarAvailable = '✅ متاح';
+
   /// Label shown under the currently active avatar.
   static const avatarSelected = '✓ مختار';
+
   /// Label shown under a locked avatar: "🔒 200 نقطة"
   static String avatarRequiredPoints(int pts) => '🔒 $pts نقطة';
+
   /// Full snackbar copy when a locked avatar is tapped.
   static String avatarUnlockRequires(String name, int pts) =>
       'اجمع $pts نقطة لفتح $name';
+
   /// Snackbar when a new avatar is unlocked via point accumulation.
   static String avatarNewUnlock(String name) => '🎉 تم فتح شخصية جديدة: $name!';
+
   /// Snackbar after successfully changing the active avatar.
   static const avatarChanged = '✅ تم تغيير الصورة الرمزية';
+
   /// Snackbar when the user taps the avatar they already have.
   static const avatarAlreadyActive = 'هذه هي صورتك الرمزية الحالية';
+
   /// Subtitle inside the avatar collection card.
   static const avatarSelectHint = 'اضغط على شخصية مفتوحة لاختيارها';
 
@@ -253,16 +255,16 @@ class AppStrings {
   // Grade labels shown beneath the accuracy arc
   // Feedback tiers match PronunciationService.feedbackFor():
   //   ≥ 90 → Excellent  |  ≥ 70 → Good  |  ≥ 50 → Needs Work  |  < 50 → Try Again
-  static const readingGradeExcellent  = 'ممتاز! 🌟';
-  static const readingGradeGood       = 'جيد! 👍';
-  static const readingGradeNeedsWork  = 'يحتاج تحسين 💪';
-  static const readingGradeTryAgain   = 'حاول مرة أخرى ⚡';
+  static const readingGradeExcellent = 'ممتاز! 🌟';
+  static const readingGradeGood = 'جيد! 👍';
+  static const readingGradeNeedsWork = 'يحتاج تحسين 💪';
+  static const readingGradeTryAgain = 'حاول مرة أخرى ⚡';
 
   // ── Letter-level analysis section ─────────────────────────
-  static const readingLetterAnalysisTitle  = 'تحليل الحروف';
-  static const readingWrongLettersLabel    = 'أخطاء النطق';
-  static const readingMissingLettersLabel  = 'حروف مفقودة';
-  static const readingExtraLettersLabel    = 'حروف زائدة';
+  static const readingLetterAnalysisTitle = 'تحليل الحروف';
+  static const readingWrongLettersLabel = 'أخطاء النطق';
+  static const readingMissingLettersLabel = 'حروف مفقودة';
+  static const readingExtraLettersLabel = 'حروف زائدة';
 
   // ── Adaptive Quiz ──────────────────────────────────────────
   static const adaptiveQuizLoading = 'جارٍ تحضير الاختبار الذكي... 🧠';
@@ -309,6 +311,5 @@ class AppStrings {
   static const adaptiveNetworkError =
       'تعذر الاتصال. تحقق من الإنترنت وأعد المحاولة.';
   static const adaptiveServerError = 'خطأ في الخادم. يرجى المحاولة لاحقاً.';
-  static const adaptiveUnauthorized =
-      'انتهت الجلسة. يرجى تسجيل الدخول مجدداً.';
+  static const adaptiveUnauthorized = 'انتهت الجلسة. يرجى تسجيل الدخول مجدداً.';
 }

@@ -41,7 +41,9 @@ class _PathScreenState extends State<PathScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final studentId = prefs.getInt('active_student_id');
-      debugPrint('PathScreen: loading lessons subjectId=$subjectId studentId=$studentId');
+      debugPrint(
+        'PathScreen: loading lessons subjectId=$subjectId studentId=$studentId',
+      );
 
       final lessons = await LessonService.instance.getLessonsBySubject(
         subjectId,
@@ -70,14 +72,6 @@ class _PathScreenState extends State<PathScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.subject == null
-        ? AppStrings.pathTitle
-        : widget.subject == 'math'
-        ? AppStrings.pathMath
-        : widget.subject == 'reading'
-        ? AppStrings.pathReading
-        : AppStrings.pathScience;
-
     return Scaffold(
       backgroundColor: AppColors.pathBg,
       body: SafeArea(
@@ -93,16 +87,7 @@ class _PathScreenState extends State<PathScreen> {
                         context.canPop() ? context.pop() : context.go('/home'),
                     icon: const Icon(Icons.chevron_left, size: 28),
                   ),
-                  Expanded(
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+
                   const SizedBox(width: 40),
                 ],
               ),
@@ -183,7 +168,6 @@ class _PathScreenState extends State<PathScreen> {
       ),
     );
   }
-
 }
 
 // ── Node widget ───────────────────────────────────────────────

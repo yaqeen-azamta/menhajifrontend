@@ -6,7 +6,6 @@ import '../l10n/app_strings.dart';
 import '../models/avatar_config.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
-import '../services/lesson_service.dart';
 import '../services/parent_progress_service.dart';
 import '../theme/theme.dart';
 import '../widgets/fat_button.dart';
@@ -19,15 +18,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  ChildDetailModel? _child;
-  StudentDashboardModel? _studentDashboard;
+  // Single source of truth for learning data — used in both student and
+  // parent modes. getStudentDashboard() passes ?studentId= when parent JWT.
+  StudentDashboardModel? _dashboard;
   bool _loading = true;
   String? _error;
 
   int? _studentId;
   String? _studentName;
   String? _studentAvatar;
-  // true when the student logged in directly (not via parent selecting a child)
   bool _isDirectStudent = false;
 
   @override
@@ -45,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Determine role FIRST so every redirect below uses the correct target.
       final role = await AuthService.instance.getCurrentRole();
       final isDirectStudent = role == 'STUDENT';
       _isDirectStudent = isDirectStudent;
@@ -55,23 +53,19 @@ class _HomeScreenState extends State<HomeScreen> {
       _studentAvatar = prefs.getString('active_student_avatar');
 
       debugPrint('HomeScreen: role=$role  studentId=$_studentId');
+      print(
+        'Current child session: role=$role studentId=$_studentId '
+        'name=$_studentName',
+      );
 
-      // ── Guard: no active student selected ─────────────────
       if (_studentId == null) {
-        if (mounted) {
-          // Direct student: token is valid but session wasn't activated —
-          // send to login rather than the parent profiles screen.
-          context.go(isDirectStudent ? '/login' : '/profiles');
-        }
+        if (mounted) context.go(isDirectStudent ? '/login' : '/profiles');
         return;
       }
 
-      // ── Guard: studentId must NOT equal parentId ───────────
-      // Only relevant for parent-managed sessions; skip for direct students.
       if (!isDirectStudent) {
         final parentId = await AuthService.instance.getParentId();
         debugPrint('HomeScreen: parentId=$parentId');
-
         if (_studentId == parentId) {
           debugPrint('ERROR: active_student_id == parentId — redirecting');
           await prefs.remove('active_student_id');
@@ -88,68 +82,42 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      debugPrint('Token active for student $_studentId');
-
-      // ── Load student summary ───────────────────────────────
-      final summary = await ProgressService.instance.getSummary(_studentId!);
-
-      // ── Load subjects for current grade ────────────────────
-      final grade = prefs.getInt('active_grade_level') ?? 1;
-      debugPrint(
-        'HomeScreen: loading subjects grade=$grade studentId=$_studentId',
-      );
-      final subjects = await LessonService.instance.getSubjects(
-        grade,
-        studentId: _studentId,
-      );
-      debugPrint('========== SUBJECTS ==========');
-
-      for (final s in subjects) {
-        debugPrint(
-          'SUBJECT=${s.name} completed=${s.completedLessons} total=${s.totalLessons}',
-        );
-      }
-
-      debugPrint('==============================');
-
-      // ── Build lightweight child object ─────────────────────
-      final child = ChildDetailModel(
-        studentId: _studentId!,
-        fullName: _studentName ?? 'Student',
-        gradeLevel: grade,
-        totalPoints: summary.totalPoints,
-        currentStreak: summary.currentStreak,
-        lessonsCompleted: summary.completedLessons,
-        lessonsInProgress: 0,
-        totalLessons: summary.totalLessons,
-        totalQuizzesTaken: summary.totalQuizzesTaken,
-        averageQuizScore: summary.averageQuizScore,
-        overallMastery: summary.overallMastery,
-        subjectBreakdown: subjects
-            .map(
-              (s) => SubjectMasteryModel(
-                subjectId: s.id,
-                subjectName: s.name,
-                totalLessons: s.totalLessons,
-                lessonsCompleted: s.completedLessons,
-                averageMastery: 0,
-                coverImage: s.coverImage,
-              ),
-            )
-            .toList(),
+      // Single call — works for both modes:
+      // • Student JWT + no studentId param  → backend uses JWT identity
+      // • Parent JWT + studentId param      → backend resolveStudentId() uses it
+      final dashboard = await ProgressService.instance.getStudentDashboard(
+        studentId: isDirectStudent ? null : _studentId,
       );
 
-      // ── Load student dashboard (dailyGoal + recommendedLesson) ──
-      final studentDashboard =
-          await ProgressService.instance.getStudentDashboard();
-
-      setState(() {
-        _child = child;
-        _studentDashboard = studentDashboard;
-      });
+      setState(() => _dashboard = dashboard);
     } on ApiException catch (e) {
       if (e.statusCode == 401 || e.statusCode == 403) {
-        debugPrint('HomeScreen: auth error ${e.statusCode} — clearing session');
+        debugPrint('HomeScreen: auth error ${e.statusCode} — ${e.message}');
+        print('Session validation result: FAILED statusCode=${e.statusCode}');
+
+        // In parent mode, the stale-token issue (switchToParent restoring an
+        // expired token that _withRefresh had already rotated) can cause this
+        // 401 spuriously.  Refresh the parent session once and retry before
+        // surfacing the error to the user.
+        if (!_isDirectStudent && _studentId != null) {
+          try {
+            debugPrint('HomeScreen: retrying after switchToParent refresh');
+            await AuthService.instance.switchToParent();
+            final dashboard = await ProgressService.instance.getStudentDashboard(
+              studentId: _studentId,
+            );
+            if (mounted) {
+              setState(() {
+                _dashboard = dashboard;
+                _loading = false;
+              });
+            }
+            return;
+          } catch (retryErr) {
+            debugPrint('HomeScreen: retry also failed: $retryErr');
+          }
+        }
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('active_student_id');
 
@@ -163,12 +131,9 @@ class _HomeScreenState extends State<HomeScreen> {
           );
 
           if (_isDirectStudent) {
-            // Direct student: clear everything and return to login.
             await AuthService.instance.logout();
             context.go('/login');
           } else {
-            // Parent-managed session: restore parent JWT and go back to
-            // child selection — do NOT call any parent-only APIs here.
             await AuthService.instance.switchToParent();
             context.go('/profiles');
           }
@@ -186,10 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _switchProfile() async {
-    // Capture router before any await so we don't use BuildContext across
-    // async gaps (use_build_context_synchronously lint).
     final router = GoRouter.of(context);
-
     if (_isDirectStudent) {
       await AuthService.instance.logout();
       if (mounted) router.go('/login');
@@ -201,13 +163,36 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  static String _subjectKey(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('math') || n.contains('رياض')) return 'math';
+    if (n.contains('read') ||
+        n.contains('arabic') ||
+        n.contains('english') ||
+        n.contains('عرب')) {
+      return 'reading';
+    }
+    return 'science';
+  }
+
+  static String _subjectEmoji(String key) {
+    switch (key) {
+      case 'reading':
+        return '📖';
+      case 'science':
+        return '🔬';
+      default:
+        return '🔢';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_error != null || _child == null) {
+    if (_error != null || _dashboard == null) {
       return Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(
@@ -243,17 +228,17 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final child = _child!;
-    final dashboard = _studentDashboard;
-    final recommended = dashboard?.recommendedLesson;
-    final name = _studentName ?? child.fullName;
-    final avatar = AvatarConfig.resolve(_studentAvatar).emoji;
+    final dashboard = _dashboard!;
+    final name = _studentName ?? dashboard.fullName;
+    final avatar = AvatarConfig.resolve(_studentAvatar ?? dashboard.avatarId).emoji;
 
-    final dailyGoal = dashboard?.dailyGoal ?? 0;
-    final completedToday = dashboard?.completedToday ?? 0;
+    final completedLessons =
+        dashboard.subjects.fold(0, (s, e) => s + e.completedLessons);
+    final dailyGoal = dashboard.dailyGoal;
     final progressFraction = dailyGoal == 0
         ? 0.0
-        : (completedToday / dailyGoal).clamp(0.0, 1.0);
+        : (completedLessons / dailyGoal).clamp(0.0, 1.0);
+    final recommended = dashboard.recommendedLesson;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -291,16 +276,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                avatar,
-                                style: const TextStyle(fontSize: 20),
-                              ),
+                              Text(avatar, style: const TextStyle(fontSize: 20)),
                               const SizedBox(width: 6),
                               Text(
                                 name,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                    fontWeight: FontWeight.w900),
                               ),
                               const Icon(
                                 Icons.keyboard_arrow_down,
@@ -312,9 +293,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      _StatPill(icon: '🔥', value: '${child.currentStreak}'),
+                      _StatPill(
+                          icon: '🔥', value: '${dashboard.currentStreak}'),
                       const SizedBox(width: 8),
-                      _StatPill(icon: '⭐', value: '${child.totalPoints}'),
+                      _StatPill(icon: '⭐', value: '${dashboard.totalPoints}'),
                     ],
                   ),
                 ),
@@ -345,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // ── DAILY GOAL (unified card with next lesson inside) ──
+                // ── PROGRESS CARD ─────────────────────────────
                 Container(
                   margin: const EdgeInsets.fromLTRB(24, 16, 24, 12),
                   padding: const EdgeInsets.all(16),
@@ -375,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             dailyGoal == 0
                                 ? AppStrings.homeNoLessons
                                 : AppStrings.homeLessonsProgress(
-                                    completedToday,
+                                    completedLessons,
                                     dailyGoal,
                                   ),
                             style: const TextStyle(
@@ -450,35 +432,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             await _load();
                           },
                         ),
-                      ] else if (dailyGoal == 0) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(height: 1, color: Color(0xFFE8DCC8)),
-                        ),
-                        const Text(
-                          AppStrings.homeWelcomeMsg,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ] else ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(height: 1, color: Color(0xFFE8DCC8)),
-                        ),
-                        const Text(
-                          AppStrings.homeAllLessonsComplete,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const FatButton(
-                          label: AppStrings.homeStart,
-                          onPressed: null,
-                        ),
                       ],
                     ],
                   ),
@@ -493,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                if (child.subjectBreakdown.isEmpty)
+                if (dashboard.subjects.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
                     child: Text(
@@ -507,19 +460,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Wrap(
                       spacing: 12,
                       runSpacing: 12,
-                      children: child.subjectBreakdown.map((s) {
-                        final w = (MediaQuery.of(context).size.width - 64) / 2;
+                      children: dashboard.subjects.map((s) {
+                        final key = _subjectKey(s.name);
+                        final w =
+                            (MediaQuery.of(context).size.width - 64) / 2;
                         return SizedBox(
                           width: w,
                           child: _SubjectCard(
-                            subjectKey: s.key,
-                            label: s.subjectName,
-                            emoji: s.emoji,
+                            subjectKey: key,
+                            label: s.name,
+                            emoji: _subjectEmoji(key),
                             total: s.totalLessons,
-                            done: s.lessonsCompleted,
+                            done: s.completedLessons,
                             coverImage: s.coverImage,
                             onTap: () => context.push(
-                              '/path?subject=${s.key}&subjectId=${s.subjectId}',
+                              '/path?subject=$key&subjectId=${s.id}',
                             ),
                           ),
                         );

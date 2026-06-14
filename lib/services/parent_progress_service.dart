@@ -1,5 +1,7 @@
-import 'api_client.dart';
 import 'package:flutter/material.dart';
+
+import 'api_client.dart';
+import 'lesson_service.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Parent dashboard models
@@ -207,51 +209,83 @@ class ParentService {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Student dashboard models
+// Recommended lesson — embedded in StudentDashboardResponse
 // ─────────────────────────────────────────────────────────────
-class RecommendedLesson {
+class RecommendedLessonModel {
   final int lessonId;
   final String title;
   final int subjectId;
   final String subjectName;
   final int orderIndex;
+  final String? completionStatus;
 
-  const RecommendedLesson({
+  const RecommendedLessonModel({
     required this.lessonId,
     required this.title,
     required this.subjectId,
     required this.subjectName,
     required this.orderIndex,
+    this.completionStatus,
   });
 
-  factory RecommendedLesson.fromJson(Map<String, dynamic> j) => RecommendedLesson(
-    lessonId: j['lessonId'] as int,
-    title: j['title'] as String,
-    subjectId: j['subjectId'] as int,
-    subjectName: j['subjectName'] as String,
-    orderIndex: j['orderIndex'] as int? ?? 0,
-  );
+  factory RecommendedLessonModel.fromJson(Map<String, dynamic> j) =>
+      RecommendedLessonModel(
+        lessonId: (j['lessonId'] as num?)?.toInt() ?? 0,
+        title: j['title'] as String? ?? '',
+        subjectId: (j['subjectId'] as num?)?.toInt() ?? 0,
+        subjectName: j['subjectName'] as String? ?? '',
+        orderIndex: j['orderIndex'] as int? ?? 0,
+        completionStatus: j['completionStatus'] as String?,
+      );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Student dashboard model — maps StudentDashboardResponse
+// Fields: studentId, fullName, avatarId, gradeLevel,
+//         currentStreak, totalPoints, dailyGoal,
+//         recommendedLesson, subjects (with coverImage)
+// Used by BOTH student mode (student JWT) and parent mode
+// (parent JWT + ?studentId= after backend fix).
+// ─────────────────────────────────────────────────────────────
 class StudentDashboardModel {
+  final int studentId;
+  final String fullName;
+  final String? avatarId;
+  final int gradeLevel;
+  final int currentStreak;
+  final int totalPoints;
   final int dailyGoal;
-  final int completedToday;
-  final RecommendedLesson? recommendedLesson;
+  final RecommendedLessonModel? recommendedLesson;
+  final List<SubjectModel> subjects;
 
   const StudentDashboardModel({
+    required this.studentId,
+    required this.fullName,
+    this.avatarId,
+    required this.gradeLevel,
+    required this.currentStreak,
+    required this.totalPoints,
     required this.dailyGoal,
-    required this.completedToday,
     this.recommendedLesson,
+    required this.subjects,
   });
 
   factory StudentDashboardModel.fromJson(Map<String, dynamic> j) =>
       StudentDashboardModel(
+        studentId: (j['studentId'] as num?)?.toInt() ?? 0,
+        fullName: j['fullName'] as String? ?? '',
+        avatarId: j['avatarId'] as String?,
+        gradeLevel: j['gradeLevel'] as int? ?? 1,
+        currentStreak: j['currentStreak'] as int? ?? 0,
+        totalPoints: j['totalPoints'] as int? ?? 0,
         dailyGoal: j['dailyGoal'] as int? ?? 0,
-        completedToday: j['completedToday'] as int? ?? 0,
-        recommendedLesson: j['recommendedLesson'] == null
-            ? null
-            : RecommendedLesson.fromJson(
-                j['recommendedLesson'] as Map<String, dynamic>),
+        recommendedLesson: j['recommendedLesson'] != null
+            ? RecommendedLessonModel.fromJson(
+                j['recommendedLesson'] as Map<String, dynamic>)
+            : null,
+        subjects: (j['subjects'] as List<dynamic>? ?? [])
+            .map((e) => SubjectModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 
@@ -341,11 +375,15 @@ class ProgressService {
     return ProgressSummaryModel.fromJson(res['data'] as Map<String, dynamic>);
   }
 
-  // GET /api/student/dashboard  (requires student JWT)
-  Future<StudentDashboardModel> getStudentDashboard() async {
-    final res = await _api.get('/api/student/dashboard');
-    final data = res['data'] as Map<String, dynamic>;
-    return StudentDashboardModel.fromJson(data);
+  // GET /api/student/dashboard
+  // Student mode: no param needed (JWT carries identity).
+  // Parent mode: pass studentId so the backend resolveStudentId() uses it.
+  Future<StudentDashboardModel> getStudentDashboard({int? studentId}) async {
+    final res = studentId != null
+        ? await _api.getQuery(
+            '/api/student/dashboard', {'studentId': studentId.toString()})
+        : await _api.get('/api/student/dashboard');
+    return StudentDashboardModel.fromJson(res['data'] as Map<String, dynamic>);
   }
 
   // GET /api/progress/leaderboard?gradeLevel={grade}

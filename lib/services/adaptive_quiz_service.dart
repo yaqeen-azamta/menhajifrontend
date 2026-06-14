@@ -28,8 +28,12 @@ class AdaptiveQuizService {
   //
   // Calling this for a lesson that already has an IN_PROGRESS attempt
   // transparently returns that attempt instead of creating a new one.
-  Future<AdaptiveQuizPayload> generateOrResume(int lessonId) async {
-    final res = await _api.get('/api/quiz/adaptive/$lessonId');
+  // Pass studentId when called with a parent JWT so the backend resolves
+  // the correct child instead of the parent account.
+  Future<AdaptiveQuizPayload> generateOrResume(int lessonId,
+      {int? studentId}) async {
+    final query = studentId != null ? '?studentId=$studentId' : '';
+    final res = await _api.get('/api/quiz/adaptive/$lessonId$query');
     return AdaptiveQuizPayload.fromJson(_unwrap(res));
   }
 
@@ -37,13 +41,16 @@ class AdaptiveQuizService {
   //
   // [totalCount] is the number of questions in the payload so the result
   // model can derive incorrectCount without a second API call.
+  // Pass studentId when called with a parent JWT.
   Future<AdaptiveQuizResult> submit(
     int attemptId,
     List<AdaptiveAnswer> answers,
-    int totalCount,
-  ) async {
+    int totalCount, {
+    int? studentId,
+  }) async {
+    final query = studentId != null ? '?studentId=$studentId' : '';
     final res = await _api.post(
-      '/api/quiz/adaptive/$attemptId/submit',
+      '/api/quiz/adaptive/$attemptId/submit$query',
       {'answers': answers.map((a) => a.toJson()).toList()},
     );
     return AdaptiveQuizResult.fromJson(_unwrap(res), totalCount: totalCount);

@@ -8,7 +8,6 @@ import '../services/api_client.dart';
 import '../services/lesson_service.dart';
 import '../theme/theme.dart';
 import '../widgets/fat_button.dart';
-import '../widgets/mic_button.dart';
 
 class LessonScreen extends StatefulWidget {
   const LessonScreen({super.key, required this.lessonId});
@@ -22,8 +21,6 @@ class _LessonScreenState extends State<LessonScreen> {
   LessonDetailModel? _lesson;
   bool _loading = true;
   String? _error;
-  int _step = 0;
-  String? _transcript;
   bool _loadingAudio = false;
 
   final _audioPlayer = AudioPlayer();
@@ -69,7 +66,6 @@ class _LessonScreenState extends State<LessonScreen> {
     }
   }
 
-  /// Resolves a potentially relative path from the backend into a full URL.
   String _resolveAudioUrl(String raw) {
     if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
     return '$kBaseUrl$raw';
@@ -80,13 +76,11 @@ class _LessonScreenState extends State<LessonScreen> {
     final id = int.tryParse(widget.lessonId);
     if (l == null || id == null) return;
 
-    // If the lesson already has a cached audioUrl, play it directly.
     if (l.audioUrl != null && l.audioUrl!.isNotEmpty) {
       await _startPlayback(_resolveAudioUrl(l.audioUrl!));
       return;
     }
 
-    // Otherwise ask the backend to narrate on-demand.
     setState(() => _loadingAudio = true);
     try {
       final relativeUrl = await LessonService.instance.narrateLesson(id);
@@ -164,16 +158,6 @@ class _LessonScreenState extends State<LessonScreen> {
 
     final l = _lesson!;
     final subjectKey = _subjectKey(l.subjectName);
-
-    final steps = [
-      (AppStrings.lessonStepWelcomeTitle,
-        AppStrings.lessonStepWelcomeBody(l.title, l.objectives ?? '')),
-      (AppStrings.lessonStepLearnTitle, l.content),
-      (AppStrings.lessonStepSpeakTitle, AppStrings.lessonStepSpeakBody),
-    ];
-
-    final cur = steps[_step];
-    final progress = (_step + 1) / steps.length;
     final (bg, sh) = SubjectColors.of(subjectKey);
 
     return Scaffold(
@@ -200,7 +184,7 @@ class _LessonScreenState extends State<LessonScreen> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(7),
                       child: LinearProgressIndicator(
-                        value: progress,
+                        value: 1.0,
                         minHeight: 14,
                         backgroundColor: const Color(0xFFE8DCC8),
                         color: bg,
@@ -240,15 +224,6 @@ class _LessonScreenState extends State<LessonScreen> {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Text(
-                      cur.$1.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
                     const SizedBox(height: 16),
 
                     // Content card
@@ -267,7 +242,7 @@ class _LessonScreenState extends State<LessonScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            cur.$2,
+                            l.content,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -319,53 +294,6 @@ class _LessonScreenState extends State<LessonScreen> {
                         ],
                       ),
                     ),
-
-                    // Speaking step
-                    if (_step == 2)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Column(
-                          children: [
-                            MicButton(
-                              onTranscript: (t) =>
-                                  setState(() => _transcript = t),
-                            ),
-                            if (_transcript != null &&
-                                _transcript != '__no_permission__')
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3E0),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFFFFD299),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    AppStrings.lessonYouSaid(_transcript!),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (_transcript == '__no_permission__')
-                              const Padding(
-                                padding: EdgeInsets.only(top: 12),
-                                child: Text(
-                                  AppStrings.lessonMicPermission,
-                                  style: TextStyle(
-                                    color: AppColors.flame,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -381,17 +309,8 @@ class _LessonScreenState extends State<LessonScreen> {
                 ),
               ),
               child: FatButton(
-                label: _step < steps.length - 1
-                    ? AppStrings.continueBtn
-                    : AppStrings.lessonViewQuestions,
-                onPressed: () {
-                  if (_step < steps.length - 1) {
-                    setState(() => _step++);
-                  } else {
-                    // Push so the back button on question_screen returns here
-                    context.push('/questions/${l.id}');
-                  }
-                },
+                label: AppStrings.lessonViewQuestions,
+                onPressed: () => context.push('/questions/${l.id}'),
               ),
             ),
           ],

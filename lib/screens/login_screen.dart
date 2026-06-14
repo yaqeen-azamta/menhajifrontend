@@ -80,14 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Image.asset('assets/images/icon.png', width: 110, height: 110),
                 const SizedBox(height: 8),
-                const Text(
-                  AppStrings.appName,
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                  ),
-                ),
+
                 const SizedBox(height: 4),
                 const Text(
                   AppStrings.loginWelcome,
@@ -99,9 +92,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                _input(_emailC, AppStrings.emailHint,
-                    keyboard: TextInputType.emailAddress,
-                    icon: Icons.email_outlined),
+                _input(
+                  _emailC,
+                  AppStrings.emailHint,
+                  keyboard: TextInputType.emailAddress,
+                  icon: Icons.email_outlined,
+                ),
                 _passwordInput(),
 
                 if (_error != null)
@@ -215,11 +211,16 @@ class _LoginScreenState extends State<LoginScreen> {
         textDirection: TextDirection.ltr,
         decoration: InputDecoration(
           hintText: AppStrings.passwordHint,
-          prefixIcon: const Icon(Icons.lock_outlined,
-              color: AppColors.textSecondary, size: 20),
+          prefixIcon: const Icon(
+            Icons.lock_outlined,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
           suffixIcon: IconButton(
             icon: Icon(
-              _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              _obscure
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
               color: AppColors.textSecondary,
               size: 20,
             ),
@@ -252,7 +253,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _divider() {
     return Row(
       children: [
-        const Expanded(child: Divider(color: Color(0xFFE8DCC8), thickness: 1.5)),
+        const Expanded(
+          child: Divider(color: Color(0xFFE8DCC8), thickness: 1.5),
+        ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
@@ -264,7 +267,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        const Expanded(child: Divider(color: Color(0xFFE8DCC8), thickness: 1.5)),
+        const Expanded(
+          child: Divider(color: Color(0xFFE8DCC8), thickness: 1.5),
+        ),
       ],
     );
   }

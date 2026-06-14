@@ -181,18 +181,22 @@ class ReadingService {
     required File audioFile,
     required String lessonId,
     required int questionId,
+    int? studentId,
   }) async {
+    final fields = <String, String>{
+      'lessonId': lessonId,
+      'questionId': questionId.toString(),
+      'language': 'ar',
+    };
+    if (studentId != null) fields['studentId'] = studentId.toString();
+
     final res = await _api.postMultipart(
       '/api/reading/assess',
       fileField: 'audio',
       file: audioFile,
       filename: 'reading.m4a',
       mimeType: 'audio/m4a',
-      fields: {
-        'lessonId': lessonId,
-        'questionId': questionId.toString(),
-        'language': 'ar',
-      },
+      fields: fields,
     );
 
     return ReadingAssessmentResult.fromJson(res);

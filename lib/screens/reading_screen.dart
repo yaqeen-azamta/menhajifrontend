@@ -38,6 +38,7 @@ class ReadingScreen extends StatefulWidget {
     required this.questionId,
     this.readingText,
     this.onComplete,
+    this.studentId,
   });
 
   final String lessonId;
@@ -51,6 +52,9 @@ class ReadingScreen extends StatefulWidget {
   /// QuestionScreen uses this to gate _advance() so the lesson only progresses
   /// on deliberate user action, not on any incidental dismissal of the screen.
   final VoidCallback? onComplete;
+
+  /// PARENT mode: the child's students.id. Forwarded to POST /api/reading/assess.
+  final int? studentId;
 
   @override
   State<ReadingScreen> createState() => _ReadingScreenState();
@@ -84,7 +88,7 @@ class _ReadingScreenState extends State<ReadingScreen>
   @override
   void initState() {
     super.initState();
-    debugPrint('[ReadingScreen] initState — lessonId=${widget.lessonId} questionId=${widget.questionId} readingText="${widget.readingText}"');
+    debugPrint('[ReadingScreen] initState — lessonId=${widget.lessonId} questionId=${widget.questionId} studentId=${widget.studentId} readingText="${widget.readingText}"');
     // Pulse animation is created here but NOT started.
     // It only starts when _startRecording() is explicitly called by the user.
     _pulseCtrl = AnimationController(
@@ -192,6 +196,7 @@ class _ReadingScreenState extends State<ReadingScreen>
         audioFile: audioFile,
         lessonId: widget.lessonId,
         questionId: widget.questionId,
+        studentId: widget.studentId,
       );
 
       debugPrint('[ReadingScreen] → result state (score=${result.pronunciationScore} feedback="${result.feedback}")');

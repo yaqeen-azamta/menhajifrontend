@@ -188,11 +188,13 @@ class QuestionService {
   // POST /api/student-answers
   // answer: the student's response string.
   // For TRACING questions pass 'TRACED' as the answer.
+  // studentId: pass the child's studentId when called with a parent JWT.
   Future<SaveAnswerResult> saveAnswer({
     required int questionId,
     required int lessonId,
     required String answer,
     required String questionType,
+    int? studentId,
   }) async {
     final payload = {
       'questionId': questionId,
@@ -200,9 +202,10 @@ class QuestionService {
       'answer': answer,
       'questionType': questionType,
     };
-    debugPrint('📤 saveAnswer payload: $payload');
+    debugPrint('📤 saveAnswer payload: $payload studentId=$studentId');
 
-    final res = await _api.post('/api/student-answers', payload);
+    final query = studentId != null ? '?studentId=$studentId' : '';
+    final res = await _api.post('/api/student-answers$query', payload);
 
     debugPrint('📥 saveAnswer raw response: $res');
 

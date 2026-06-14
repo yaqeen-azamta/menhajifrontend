@@ -75,36 +75,31 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     if (mounted) context.go('/login');
   }
 
-  // ── Select child — swap JWT to child's token ───────────────
+  // ── Select child — persist selection and navigate ──────────
+  // The parent JWT stays active. All child API calls pass
+  // active_student_id as a query param to parent-compatible endpoints.
   Future<void> _selectChild(ChildSummaryModel child) async {
-    debugPrint(
-      'Selecting child: studentId=${child.studentId}  name=${child.fullName}',
-    );
+    print('Child selected: ${child.studentId}');
 
-    // 1. Save child info to SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('active_student_id', child.studentId);
     await prefs.setInt('active_grade_level', child.gradeLevel);
     await prefs.setString('active_student_name', child.fullName);
-    await prefs.setString(
-      'active_student_avatar',
-      child.avatarId ?? 'rabbit',
+    await prefs.setString('active_student_avatar', child.avatarId ?? 'rabbit');
+
+    final storedId = prefs.getInt('active_student_id');
+    print('Stored childId: $storedId');
+    print(
+      'Current child session: studentId=$storedId name=${child.fullName} '
+      'avatar=${child.avatarId} grade=${child.gradeLevel}',
     );
 
-    debugPrint(
-      'SAVED active_student_id = ${prefs.getInt('active_student_id')}',
+    final currentRole = await AuthService.instance.getCurrentRole();
+    final token = await TokenStore.getAccess();
+    print(
+      'Session validation result: role=$currentRole '
+      'tokenPresent=${token != null} childId=$storedId',
     );
-    debugPrint(
-      'SAVED active_grade_level = ${prefs.getInt('active_grade_level')}',
-    );
-    debugPrint(
-      'SAVED active_student_name = ${prefs.getString('active_student_name')}',
-    );
-
-    // 2. Swap the active JWT to the child's token
-    //    → all subsequent API calls will use the student's token
-    //    → backend principal = child.studentId (not parent id)
-    await AuthService.instance.switchToChild(child.studentId);
 
     if (mounted) context.go('/home');
   }
