@@ -207,6 +207,55 @@ class ParentService {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Student dashboard models
+// ─────────────────────────────────────────────────────────────
+class RecommendedLesson {
+  final int lessonId;
+  final String title;
+  final int subjectId;
+  final String subjectName;
+  final int orderIndex;
+
+  const RecommendedLesson({
+    required this.lessonId,
+    required this.title,
+    required this.subjectId,
+    required this.subjectName,
+    required this.orderIndex,
+  });
+
+  factory RecommendedLesson.fromJson(Map<String, dynamic> j) => RecommendedLesson(
+    lessonId: j['lessonId'] as int,
+    title: j['title'] as String,
+    subjectId: j['subjectId'] as int,
+    subjectName: j['subjectName'] as String,
+    orderIndex: j['orderIndex'] as int? ?? 0,
+  );
+}
+
+class StudentDashboardModel {
+  final int dailyGoal;
+  final int completedToday;
+  final RecommendedLesson? recommendedLesson;
+
+  const StudentDashboardModel({
+    required this.dailyGoal,
+    required this.completedToday,
+    this.recommendedLesson,
+  });
+
+  factory StudentDashboardModel.fromJson(Map<String, dynamic> j) =>
+      StudentDashboardModel(
+        dailyGoal: j['dailyGoal'] as int? ?? 0,
+        completedToday: j['completedToday'] as int? ?? 0,
+        recommendedLesson: j['recommendedLesson'] == null
+            ? null
+            : RecommendedLesson.fromJson(
+                j['recommendedLesson'] as Map<String, dynamic>),
+      );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Progress models
 // ─────────────────────────────────────────────────────────────
 class ProgressSummaryModel {
@@ -290,6 +339,13 @@ class ProgressService {
     });
 
     return ProgressSummaryModel.fromJson(res['data'] as Map<String, dynamic>);
+  }
+
+  // GET /api/student/dashboard  (requires student JWT)
+  Future<StudentDashboardModel> getStudentDashboard() async {
+    final res = await _api.get('/api/student/dashboard');
+    final data = res['data'] as Map<String, dynamic>;
+    return StudentDashboardModel.fromJson(data);
   }
 
   // GET /api/progress/leaderboard?gradeLevel={grade}

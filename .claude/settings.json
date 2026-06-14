@@ -7,7 +7,9 @@
       "Bash(xargs ls -la)",
       "Bash(./gradlew compileJava --info)",
       "Bash(grep -v \"^$\")",
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(flutter pub *)",
+      "Bash(sed -i 's|packages/tracing_game/assets/|assets/|g' /Users/mac/Downloads/flutter_tracing-main/pubspec.yaml && echo \"done\")"
     ],
     "additionalDirectories": [
       "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/entity/enums",
@@ -16,7 +18,8 @@
       "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/repository",
       "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/dto/request",
       "/Users/mac/Downloads/Manhaji-main/src/main/java/com/springboot/manhaji/config",
-      "/Users/mac/Downloads/Manhaji-main/src/main/resources"
+      "/Users/mac/Downloads/Manhaji-main/src/main/resources",
+      "/Users/mac/Downloads/flutter_tracing-main"
     ]
   }
 }

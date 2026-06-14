@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Change this to your actual server address.
 
 /// For iOS simulator or web use http://localhost:8080
-const String kBaseUrl = 'http://192.168.0.192:8080';
+const String kBaseUrl = 'http://10.0.2.2:8080';
 
 // ─────────────────────────────────────────────────────────────
 // Token storage helpers

@@ -162,18 +162,24 @@ class LessonService {
   }
 
   // POST /api/audio/lesson/{lessonId}/narrate
-  // Returns { audioUrl: "..." } or { message: "unavailable" }
+  // Backend returns { audioUrl: "..." } at the top level (not wrapped in data).
   Future<String?> narrateLesson(int lessonId) async {
     final res = await _api.post('/api/audio/lesson/$lessonId/narrate', {});
-    final data = res['data'] as Map<String, dynamic>;
-    return data['audioUrl'] as String?;
+    // Try top-level key first; fall back to nested data map if the backend ever
+    // wraps the response.
+    if (res['audioUrl'] is String) return res['audioUrl'] as String;
+    final nested = res['data'];
+    if (nested is Map<String, dynamic>) return nested['audioUrl'] as String?;
+    return null;
   }
 
   // POST /api/audio/question/{questionId}/read
   Future<String?> narrateQuestion(int questionId) async {
     final res = await _api.post('/api/audio/question/$questionId/read', {});
-    final data = res['data'] as Map<String, dynamic>;
-    return data['audioUrl'] as String?;
+    if (res['audioUrl'] is String) return res['audioUrl'] as String;
+    final nested = res['data'];
+    if (nested is Map<String, dynamic>) return nested['audioUrl'] as String?;
+    return null;
   }
 
   // POST /api/progress/lesson/{lessonId}/complete[?studentId={id}]

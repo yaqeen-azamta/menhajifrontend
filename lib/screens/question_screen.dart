@@ -11,8 +11,7 @@ import '../services/api_client.dart';
 import '../services/lesson_service.dart';
 import '../services/question_service.dart';
 import '../theme/theme.dart';
-import '../tracing/models/tracing_question.dart';
-import '../tracing/widgets/tracing_canvas_widget.dart';
+import '../tracing/utils/tracing_helper.dart';
 import '../widgets/fat_button.dart';
 
 class QuestionScreen extends StatefulWidget {
@@ -30,8 +29,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
   int _index = 0;
   String? _selectedAnswer;
   final _writeController = TextEditingController();
-  final _tracingKey = GlobalKey<TracingCanvasState>();
+  bool _tracingCompleted = false;
   bool _readingCompleted = false;
+
+  // Hint state — reset each time the question advances.
+  int _hintLevel = 0;       // 0 = no hint fetched yet for this question
+  int _remainingHints = 99; // sentinel meaning "unknown — assume available"
+  bool _loadingHint = false;
 
   @override
   void initState() {
@@ -167,18 +171,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
     debugPrint('     _selectedAnswer = "$_selectedAnswer"');
 
     // ── TRACING ────────────────────────────────────────────────
+    // The game widget auto-advances via _onTracingGameFinished when the
+    // user completes all strokes.  This branch handles the "Skip" button,
+    // allowing the user to bypass tracing without completing it.
     if (q.type == 'TRACING') {
-      final canvas = _tracingKey.currentState;
-      if (canvas == null || canvas.validStrokes.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(AppStrings.questionDrawFirst),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      debugPrint('     Submitting TRACING answer: "TRACED"');
+      if (_tracingCompleted) return; // already handled by the game callback
+      _tracingCompleted = true;
+      debugPrint('     Submitting TRACING answer: "TRACED" (skipped)');
       try {
         await QuestionService.instance.saveAnswer(
           questionId: q.id,
@@ -187,7 +186,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
           questionType: 'TRACING',
         );
       } catch (_) {}
-      canvas.clear();
       _advance();
       return;
     }
@@ -265,11 +263,77 @@ class _QuestionScreenState extends State<QuestionScreen> {
         _index++;
         _selectedAnswer = null;
         _writeController.clear();
+        _tracingCompleted = false;
+        _hintLevel = 0;
+        _remainingHints = 99;
+        _loadingHint = false;
       });
     } else {
       debugPrint('[QuestionScreen] _advance() → last question reached, calling _completeAndShowQuizDialog');
       _completeAndShowQuizDialog();
     }
+  }
+
+  Future<void> _onTracingGameFinished(int index) async {
+    if (_tracingCompleted) return;
+    _tracingCompleted = true;
+    final q = _questions[_index];
+    debugPrint('[QuestionScreen] tracing game finished — q.id=${q.id}');
+    try {
+      await QuestionService.instance.saveAnswer(
+        questionId: q.id,
+        lessonId: int.parse(widget.lessonId),
+        answer: 'TRACED',
+        questionType: 'TRACING',
+      );
+    } catch (_) {}
+    if (mounted) _advance();
+  }
+
+  // ── Hint flow ─────────────────────────────────────────────
+
+  Future<void> _fetchHint(QuestionModel q) async {
+    if (_loadingHint) return;
+    setState(() => _loadingHint = true);
+    final nextLevel = _hintLevel + 1;
+    try {
+      final hint = await QuestionService.instance.getHint(
+        q.id,
+        level: nextLevel,
+      );
+      if (!mounted) return;
+      setState(() {
+        _hintLevel = hint.level;
+        _remainingHints = hint.remainingHints;
+      });
+      _showHintSheet(hint, q);
+    } catch (e) {
+      debugPrint('[QuestionScreen] _fetchHint error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.hintFailed)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingHint = false);
+    }
+  }
+
+  void _showHintSheet(HintModel hint, QuestionModel q) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _HintBottomSheet(
+        hint: hint,
+        onNextLevel: hint.remainingHints > 0
+            ? () {
+                Navigator.pop(context);
+                _fetchHint(q);
+              }
+            : null,
+      ),
+    );
   }
 
   void _showResultBanner(ScaffoldMessengerState messenger, bool correct) {
@@ -488,7 +552,18 @@ class _QuestionScreenState extends State<QuestionScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
+
+                    // Hint pill — shown for all question types in this branch
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _HintPill(
+                        loading: _loadingHint,
+                        disabled: _hintLevel > 0 && _remainingHints <= 0,
+                        onPressed: () => _fetchHint(q),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
 
                     // Context image (shown above options when question has one)
                     if (q.imageUrl != null &&
@@ -524,30 +599,12 @@ class _QuestionScreenState extends State<QuestionScreen> {
                       ),
 
                     // ── Tracing canvas ──────────────────────────────
-                    if (q.type == 'TRACING') ...[
-                      _TracingArea(canvasKey: _tracingKey, question: q),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () => _tracingKey.currentState?.clear(),
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                          label: const Text(AppStrings.tracingClear),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.danger,
-                            backgroundColor: AppColors.danger.withValues(
-                              alpha: 0.09,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                          ),
-                        ),
+                    if (q.type == 'TRACING')
+                      _TracingArea(
+                        key: ValueKey('tracing_$_index'),
+                        questionText: q.questionText,
+                        onGameFinished: _onTracingGameFinished,
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -1011,14 +1068,18 @@ class _WriteField extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TRACING AREA — canvas wrapped in a styled container
+// TRACING AREA — new game widget wrapped in a styled container
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _TracingArea extends StatelessWidget {
-  const _TracingArea({required this.canvasKey, required this.question});
+  const _TracingArea({
+    super.key,
+    required this.questionText,
+    required this.onGameFinished,
+  });
 
-  final GlobalKey<TracingCanvasState> canvasKey;
-  final QuestionModel question;
+  final String questionText;
+  final Future<void> Function(int index) onGameFinished;
 
   @override
   Widget build(BuildContext context) {
@@ -1041,16 +1102,9 @@ class _TracingArea extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: TracingCanvasWidget(
-          key: canvasKey,
-          question: TracingQuestion(
-            id: question.id.toString(),
-            displayText: question.questionText,
-            instruction: AppStrings.questionTraceInstruction,
-            category: TracingCategory.number,
-            guideStrokes: const [],
-            imageUrl: question.imageUrl,
-          ),
+        child: TracingHelper.buildGameWidget(
+          text: questionText,
+          onGameFinished: onGameFinished,
         ),
       ),
     );
@@ -1082,6 +1136,232 @@ class _BottomBar extends StatelessWidget {
         ],
       ),
       child: FatButton(label: label, onPressed: onPressed),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HINT PILL — small chip button shown below the question text
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _HintPill extends StatelessWidget {
+  const _HintPill({
+    required this.loading,
+    required this.disabled,
+    required this.onPressed,
+  });
+
+  final bool loading;
+  final bool disabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = !loading && !disabled;
+    return GestureDetector(
+      onTap: active ? onPressed : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: disabled
+              ? const Color(0xFFF0F0F0)
+              : AppColors.gold.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: disabled ? const Color(0xFFDDDDDD) : AppColors.gold,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.gold,
+                ),
+              )
+            else
+              Text(
+                disabled ? '🔒' : '💡',
+                style: const TextStyle(fontSize: 14),
+              ),
+            const SizedBox(width: 6),
+            Text(
+              disabled ? AppStrings.hintNoMore : AppStrings.hintButton,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: disabled ? AppColors.textSecondary : AppColors.flame,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HINT BOTTOM SHEET — displays the hint text and optional next-level button
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _HintBottomSheet extends StatelessWidget {
+  const _HintBottomSheet({required this.hint, this.onNextLevel});
+
+  final HintModel hint;
+  final VoidCallback? onNextLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Header: lightbulb icon + title + level badge
+            Row(
+              children: [
+                const Text('💡', style: TextStyle(fontSize: 26)),
+                const SizedBox(width: 10),
+                const Text(
+                  AppStrings.hintSheetTitle,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    AppStrings.hintLevelLabel(hint.level),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.flame,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Hint text card — matches the warm card style used across the app
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFE8DCC8),
+                  width: 2,
+                ),
+              ),
+              child: Text(
+                hint.hint,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  height: 1.6,
+                  color: AppColors.textPrimary,
+                ),
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Remaining hints indicator
+            if (hint.remainingHints > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      AppStrings.hintRemainingLabel(hint.remainingHints),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ...List.generate(
+                      hint.remainingHints.clamp(0, 5),
+                      (_) => const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 2),
+                        child: Icon(
+                          Icons.circle,
+                          size: 8,
+                          color: AppColors.gold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  AppStrings.hintNoMore,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+
+            // "Stronger hint" button — only shown when the backend says more are available
+            if (onNextLevel != null) ...[
+              FatButton(
+                label: AppStrings.hintNextLevel,
+                color: FatColor.gold,
+                onPressed: onNextLevel,
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Close button
+            FatButton(
+              label: AppStrings.hintClose,
+              color: FatColor.secondary,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,8 +1,10 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_strings.dart';
+import '../services/api_client.dart';
 import '../services/lesson_service.dart';
 import '../theme/theme.dart';
 import '../widgets/fat_button.dart';
@@ -24,10 +26,18 @@ class _LessonScreenState extends State<LessonScreen> {
   String? _transcript;
   bool _loadingAudio = false;
 
+  final _audioPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
     _loadLesson();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLesson() async {
@@ -59,41 +69,58 @@ class _LessonScreenState extends State<LessonScreen> {
     }
   }
 
+  /// Resolves a potentially relative path from the backend into a full URL.
+  String _resolveAudioUrl(String raw) {
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return '$kBaseUrl$raw';
+  }
+
   Future<void> _playAudio() async {
     final l = _lesson;
     final id = int.tryParse(widget.lessonId);
     if (l == null || id == null) return;
 
+    // If the lesson already has a cached audioUrl, play it directly.
     if (l.audioUrl != null && l.audioUrl!.isNotEmpty) {
-      // TODO: play l.audioUrl with just_audio / audioplayers
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Playing: ${l.audioUrl}')));
+      await _startPlayback(_resolveAudioUrl(l.audioUrl!));
       return;
     }
 
+    // Otherwise ask the backend to narrate on-demand.
     setState(() => _loadingAudio = true);
     try {
-      // POST /api/audio/lesson/{lessonId}/narrate
-      final url = await LessonService.instance.narrateLesson(id);
-      if (url != null && mounted) {
-        // TODO: play url
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.lessonAudioNotAvailable)));
+      final relativeUrl = await LessonService.instance.narrateLesson(id);
+      if (relativeUrl != null && relativeUrl.isNotEmpty) {
+        await _startPlayback(_resolveAudioUrl(relativeUrl));
       } else if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(AppStrings.lessonAudioNotAvailable)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.lessonAudioNotAvailable)),
+        );
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('LessonScreen._playAudio error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(AppStrings.lessonAudioFailed)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.lessonAudioFailed)),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingAudio = false);
+    }
+  }
+
+  Future<void> _startPlayback(String url) async {
+    debugPrint('LessonScreen: playing audio → $url');
+    try {
+      await _audioPlayer.stop();
+      await _audioPlayer.play(UrlSource(url));
+    } catch (e) {
+      debugPrint('LessonScreen._startPlayback error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.lessonAudioFailed)),
+        );
+      }
     }
   }
 

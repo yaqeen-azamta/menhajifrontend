@@ -96,6 +96,28 @@ class SaveAnswerResult {
 }
 
 // ─────────────────────────────────────────────────────────────
+// HintModel — returned by getHint()
+// ─────────────────────────────────────────────────────────────
+
+class HintModel {
+  final String hint;
+  final int level;
+  final int remainingHints;
+
+  const HintModel({
+    required this.hint,
+    required this.level,
+    required this.remainingHints,
+  });
+
+  factory HintModel.fromJson(Map<String, dynamic> j) => HintModel(
+    hint: j['hint']?.toString() ?? '',
+    level: j['level'] as int? ?? 1,
+    remainingHints: j['remainingHints'] as int? ?? 0,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // QuestionService
 // ─────────────────────────────────────────────────────────────
 
@@ -149,6 +171,18 @@ class QuestionService {
     print('================================================');
 
     return questions;
+  }
+
+  // GET /api/questions/{questionId}/hint?level={level}
+  // Handles both flat {"hint":"..."} and wrapped {"data":{"hint":"..."}} responses.
+  Future<HintModel> getHint(int questionId, {int level = 1}) async {
+    final res = await _api.getQuery(
+      '/api/questions/$questionId/hint',
+      {'level': level.toString()},
+    );
+    final raw = res['data'];
+    final data = raw is Map<String, dynamic> ? raw : res;
+    return HintModel.fromJson(data);
   }
 
   // POST /api/student-answers

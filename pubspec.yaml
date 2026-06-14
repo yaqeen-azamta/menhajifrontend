@@ -37,6 +37,14 @@ dependencies:
   permission_handler: ^11.0.0
   path_provider: ^2.1.0
 
+  # ── Tracing ────────────────────────────────────────────────
+  tracing_game:
+    path: /Users/mac/Downloads/flutter_tracing-main
+  flutter_bloc: ^9.0.0
+  bloc: ^9.0.0
+  equatable: ^2.0.7
+  svg_path_parser: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

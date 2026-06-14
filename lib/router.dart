@@ -1,4 +1,3 @@
-import 'package:flutter_application_1/tracing/models/tracing_question.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,7 +18,9 @@ import 'screens/path_screen.dart';
 import 'screens/lesson_screen.dart';
 import 'screens/question_screen.dart';
 import 'screens/quiz_screen.dart' as quiz;
+import 'screens/adaptive_quiz_result_screen.dart';
 import 'screens/rewards_screen.dart';
+import 'models/adaptive_quiz_models.dart';
 import 'tracing/screens/tracing_list_screen.dart';
 import 'tracing/screens/tracing_exercise_screen.dart';
 
@@ -138,6 +139,23 @@ GoRouter buildRouter(WidgetRef ref) {
           );
         },
       ),
+      // ── Adaptive quiz result ────────────────────────────────────
+      GoRoute(
+        path: '/adaptive-quiz-result',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return AdaptiveQuizResultScreen(
+            result: extra['result'] as AdaptiveQuizResult,
+            difficulty: extra['difficulty'] as int? ?? 1,
+            focusSkills: (extra['focusSkills'] as List?)
+                    ?.map((e) => e.toString())
+                    .toList() ??
+                const [],
+            lessonId: extra['lessonId'] as String? ?? '',
+          );
+        },
+      ),
+
       // ── Tracing ────────────────────────────────────────────────
       GoRoute(
         path: '/tracing',
@@ -151,21 +169,12 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, state) {
           final qId = state.pathParameters['questionId']!;
           final studentId = state.uri.queryParameters['studentId'] ?? 'guest';
-          final imageUrl = state.uri.queryParameters['image'] ?? '';
           final text = state.uri.queryParameters['text'] ?? '';
 
           return TracingExerciseScreen(
-            question: TracingQuestion(
-              id: qId,
-              displayText: text,
-              instruction: 'Trace carefully',
-              category: TracingCategory.number,
-              guideStrokes: const [],
-              imageUrl: imageUrl,
-            ),
+            questionId: qId,
             studentId: studentId,
-            initialIndex: 0,
-            allQuestions: const [],
+            text: text,
           );
         },
       ),

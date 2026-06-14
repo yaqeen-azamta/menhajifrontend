@@ -58,13 +58,15 @@ class AppStrings {
   static const homeDailyGoal = 'هدف اليوم';
   static const homeNoLessons = 'لا دروس بعد';
   static String homeLessonsProgress(int done, int total) =>
-      '$done / $total درس';
+      '$done / $total دروس';
+  static const homeAllLessonsComplete = '🎉 تم إكمال جميع الدروس';
   static const homeKeepGoing = 'استمر! أنت تستطيع!';
   static const homeAllDone = '🎉 انتهيت من جميع الدروس! رائع!';
   static const homeLessonsSoon = 'ستظهر دروسك هنا قريباً!';
   static const homeNextUp = 'الدرس التالي';
   static String homeNextMeta(int semester, int order) =>
       'الفصل $semester · الدرس $order';
+  static const homeStart = 'ابدأ';
   static String homeStartLesson(String title) => 'ابدأ $title';
   static const homeWelcomeMsg =
       '🎉 مرحباً! ستظهر دروسك هنا بمجرد إعدادها من قبل المعلم.';
@@ -117,6 +119,16 @@ class AppStrings {
   static const quizDialogContent = 'هل تريد حل الاختبار الآن؟';
   static const quizDialogNo = 'لا';
   static const quizDialogYes = 'نعم';
+
+  // ── Hints ──────────────────────────────────────────────────
+  static const hintButton = 'تلميح 💡';
+  static const hintSheetTitle = 'تلميح';
+  static String hintLevelLabel(int level) => 'المستوى $level';
+  static const hintNextLevel = 'تلميح أقوى';
+  static const hintNoMore = 'لا توجد تلميحات أخرى';
+  static const hintFailed = 'تعذر الحصول على التلميح';
+  static const hintClose = 'إغلاق';
+  static String hintRemainingLabel(int n) => 'متبقٍ: $n';
 
   // ── Quiz ───────────────────────────────────────────────────
   static const quizLoadingMsg = 'جارٍ تحضير الأسئلة... 🍳';
@@ -251,4 +263,52 @@ class AppStrings {
   static const readingWrongLettersLabel    = 'أخطاء النطق';
   static const readingMissingLettersLabel  = 'حروف مفقودة';
   static const readingExtraLettersLabel    = 'حروف زائدة';
+
+  // ── Adaptive Quiz ──────────────────────────────────────────
+  static const adaptiveQuizLoading = 'جارٍ تحضير الاختبار الذكي... 🧠';
+  static const adaptiveQuizNoQuestions = 'لا توجد أسئلة في هذا الاختبار.';
+  static const adaptiveQuizMinAnswers =
+      'يجب الإجابة على نصف الأسئلة على الأقل قبل الإرسال.';
+  static const adaptiveQuizSubmitting = 'جارٍ إرسال إجاباتك...';
+
+  // Hint strings (adaptive quiz)
+  static const adaptiveHintButton = 'تلميح 💡';
+  static const adaptiveHintExhausted = 'لا تلميحات أخرى 🔒';
+  static const adaptiveHintLimit429 = 'وصلت إلى الحد الأقصى من التلميحات';
+  static const adaptiveHintFailed = 'تعذر الحصول على التلميح. حاول مجدداً.';
+  static const adaptiveHintStronger = 'تلميح أقوى';
+  static const adaptiveHintClose = 'إغلاق';
+  static const adaptiveHintTitle = 'تلميح';
+  static String adaptiveHintRemainingPerQ(int n) => 'متبقٍ للسؤال: $n';
+  static String adaptiveHintRemainingTotal(int n) => 'متبقٍ للاختبار: $n';
+
+  // Result screen
+  static const adaptiveResultTitle = 'نتيجة الاختبار الذكي';
+  static const adaptiveResultScore = 'النتيجة';
+  static const adaptiveResultCorrect = 'صحيح';
+  static const adaptiveResultIncorrect = 'خطأ';
+  static const adaptiveResultTotal = 'الإجمالي';
+  static const adaptiveResultDifficulty = 'مستوى الصعوبة';
+  static const adaptiveResultSkillsTitle = 'مهارات محدّثة';
+  static const adaptiveResultRetry = 'محاولة أخرى';
+  static const adaptiveResultHome = 'العودة للرئيسية';
+
+  static String adaptiveResultEncouragement(int score) {
+    if (score >= 80) return 'أحسنت! ممتاز! 🌟';
+    if (score >= 60) return 'عمل جيد! استمر! 💪';
+    if (score >= 40) return 'لا بأس، تمرّن أكثر وستتحسن! 📚';
+    return 'استمر بالتدريب، أنت تستطيع! 🌱';
+  }
+
+  static String adaptiveResultSkillTip(List<String> skills) {
+    if (skills.isEmpty) return '';
+    return 'استمر بالتدريب على: ${skills.join(' و ')}';
+  }
+
+  // Network / error messages (adaptive quiz)
+  static const adaptiveNetworkError =
+      'تعذر الاتصال. تحقق من الإنترنت وأعد المحاولة.';
+  static const adaptiveServerError = 'خطأ في الخادم. يرجى المحاولة لاحقاً.';
+  static const adaptiveUnauthorized =
+      'انتهت الجلسة. يرجى تسجيل الدخول مجدداً.';
 }

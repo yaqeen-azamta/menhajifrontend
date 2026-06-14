@@ -20,7 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   ChildDetailModel? _child;
-  LessonSummaryModel? _nextLesson;
+  StudentDashboardModel? _studentDashboard;
   bool _loading = true;
   String? _error;
 
@@ -139,27 +139,13 @@ class _HomeScreenState extends State<HomeScreen> {
             .toList(),
       );
 
-      // ── Find first incomplete lesson ───────────────────────
-      LessonSummaryModel? nextLesson;
-      for (final s in subjects) {
-        if (s.completedLessons < s.totalLessons) {
-          final lessons = await LessonService.instance.getLessonsBySubject(
-            s.id,
-            studentId: _studentId,
-          );
-          for (final l in lessons) {
-            if (!l.isCompleted) {
-              nextLesson = l;
-              break;
-            }
-          }
-          if (nextLesson != null) break;
-        }
-      }
+      // ── Load student dashboard (dailyGoal + recommendedLesson) ──
+      final studentDashboard =
+          await ProgressService.instance.getStudentDashboard();
 
       setState(() {
         _child = child;
-        _nextLesson = nextLesson;
+        _studentDashboard = studentDashboard;
       });
     } on ApiException catch (e) {
       if (e.statusCode == 401 || e.statusCode == 403) {
@@ -258,21 +244,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final child = _child!;
-    final next = _nextLesson;
+    final dashboard = _studentDashboard;
+    final recommended = dashboard?.recommendedLesson;
     final name = _studentName ?? child.fullName;
     final avatar = AvatarConfig.resolve(_studentAvatar).emoji;
 
-    final totalLessons = child.subjectBreakdown.fold<int>(
-      0,
-      (s, x) => s + x.totalLessons,
-    );
-    final completedTotal = child.subjectBreakdown.fold<int>(
-      0,
-      (s, x) => s + x.lessonsCompleted,
-    );
-    final progressFraction = totalLessons == 0
+    final dailyGoal = dashboard?.dailyGoal ?? 0;
+    final completedToday = dashboard?.completedToday ?? 0;
+    final progressFraction = dailyGoal == 0
         ? 0.0
-        : (completedTotal / totalLessons).clamp(0.0, 1.0);
+        : (completedToday / dailyGoal).clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -391,11 +372,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const Spacer(),
                           Text(
-                            totalLessons == 0
+                            dailyGoal == 0
                                 ? AppStrings.homeNoLessons
                                 : AppStrings.homeLessonsProgress(
-                                    completedTotal,
-                                    totalLessons,
+                                    completedToday,
+                                    dailyGoal,
                                   ),
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
@@ -418,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        totalLessons == 0
+                        dailyGoal == 0
                             ? AppStrings.homeLessonsSoon
                             : progressFraction >= 1.0
                             ? AppStrings.homeAllDone
@@ -429,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      if (next != null) ...[
+                      if (recommended != null) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Divider(height: 1, color: Color(0xFFE8DCC8)),
@@ -445,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          next.title,
+                          recommended.title,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -453,10 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          AppStrings.homeNextMeta(
-                            next.semesterNumber,
-                            next.orderIndex,
-                          ),
+                          recommended.subjectName,
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -465,15 +443,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 12),
                         FatButton(
-                          label: AppStrings.homeStartLesson(next.title),
+                          label: AppStrings.homeStart,
                           onPressed: () async {
-                            await context.push('/lesson/${next.id}');
-
-                            // refresh after returning
+                            await context.push(
+                                '/lesson/${recommended.lessonId}');
                             await _load();
                           },
                         ),
-                      ] else if (totalLessons == 0) ...[
+                      ] else if (dailyGoal == 0) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Divider(height: 1, color: Color(0xFFE8DCC8)),
@@ -484,6 +461,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
+                        ),
+                      ] else ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(height: 1, color: Color(0xFFE8DCC8)),
+                        ),
+                        const Text(
+                          AppStrings.homeAllLessonsComplete,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const FatButton(
+                          label: AppStrings.homeStart,
+                          onPressed: null,
                         ),
                       ],
                     ],
@@ -604,7 +598,7 @@ class _SubjectCard extends StatelessWidget {
                   ? Image.network(
                       coverImage!.startsWith('http')
                           ? coverImage!
-                          : 'http://192.168.0.192:8080$coverImage',
+                          : 'http://10.0.2.2:8080$coverImage',
                       width: double.infinity,
                       height: 120,
                       fit: BoxFit.cover,
