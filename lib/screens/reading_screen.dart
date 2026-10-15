@@ -88,7 +88,9 @@ class _ReadingScreenState extends State<ReadingScreen>
   @override
   void initState() {
     super.initState();
-    debugPrint('[ReadingScreen] initState — lessonId=${widget.lessonId} questionId=${widget.questionId} studentId=${widget.studentId} readingText="${widget.readingText}"');
+    debugPrint(
+      '[ReadingScreen] initState — lessonId=${widget.lessonId} questionId=${widget.questionId} studentId=${widget.studentId} readingText="${widget.readingText}"',
+    );
     // Pulse animation is created here but NOT started.
     // It only starts when _startRecording() is explicitly called by the user.
     _pulseCtrl = AnimationController(
@@ -116,7 +118,9 @@ class _ReadingScreenState extends State<ReadingScreen>
     // No network call needed — satisfies "source of truth is the question".
     final injected = widget.readingText?.trim() ?? '';
     if (injected.isNotEmpty) {
-      debugPrint('[ReadingScreen] → ready state (text="${injected.length > 30 ? injected.substring(0, 30) : injected}…")');
+      debugPrint(
+        '[ReadingScreen] → ready state (text="${injected.length > 30 ? injected.substring(0, 30) : injected}…")',
+      );
       setState(() {
         _readingText = injected;
         _lessonTitle = AppStrings.readingTitle;
@@ -199,7 +203,9 @@ class _ReadingScreenState extends State<ReadingScreen>
         studentId: widget.studentId,
       );
 
-      debugPrint('[ReadingScreen] → result state (score=${result.pronunciationScore} feedback="${result.feedback}")');
+      debugPrint(
+        '[ReadingScreen] → result state (score=${result.pronunciationScore} feedback="${result.feedback}")',
+      );
       setState(() {
         _result = result;
         _state = _ScreenState.result;
@@ -281,7 +287,10 @@ class _ReadingScreenState extends State<ReadingScreen>
         );
 
       case _ScreenState.ready:
-        return _ReadyView(text: _readingText);
+        return _ReadyView(
+          text: _readingText,
+          onListen: () => _voice.speak(_readingText, type: 'pronunciation'),
+        );
 
       case _ScreenState.recording:
         return _RecordingView(
@@ -294,8 +303,15 @@ class _ReadingScreenState extends State<ReadingScreen>
         return _ProcessingView(text: _readingText);
 
       case _ScreenState.result:
-        debugPrint('[ReadingScreen] _buildBody → drawing result UI (score=${_result?.pronunciationScore})');
-        return _ResultView(result: _result!);
+        debugPrint(
+          '[ReadingScreen] _buildBody → drawing result UI (score=${_result?.pronunciationScore})',
+        );
+        return _ResultView(
+          result: _result!,
+          onSpeakWord: (word) => _voice.speak(word, type: 'pronunciation'),
+          onListenAgain: () =>
+              _voice.speak(_result!.originalText, type: 'pronunciation'),
+        );
 
       case _ScreenState.assessmentError:
         return _ErrorView(
@@ -325,7 +341,9 @@ class _ReadingScreenState extends State<ReadingScreen>
         );
 
       case _ScreenState.result:
-        debugPrint('[ReadingScreen] _buildBottomBar → result state, rendering Continue + TryAgain buttons');
+        debugPrint(
+          '[ReadingScreen] _buildBottomBar → result state, rendering Continue + TryAgain buttons',
+        );
         return _BottomBar(
           child: Row(
             children: [
@@ -341,10 +359,16 @@ class _ReadingScreenState extends State<ReadingScreen>
                 child: FatButton(
                   label: AppStrings.continueBtn,
                   onPressed: () {
-                    debugPrint('[ReadingScreen] ✅ Continue button PRESSED by user');
-                    debugPrint('[ReadingScreen] calling onComplete callback — onComplete is ${widget.onComplete == null ? "NULL" : "set"}');
+                    debugPrint(
+                      '[ReadingScreen] ✅ Continue button PRESSED by user',
+                    );
+                    debugPrint(
+                      '[ReadingScreen] calling onComplete callback — onComplete is ${widget.onComplete == null ? "NULL" : "set"}',
+                    );
                     widget.onComplete?.call();
-                    debugPrint('[ReadingScreen] onComplete called, now popping');
+                    debugPrint(
+                      '[ReadingScreen] onComplete called, now popping',
+                    );
                     context.canPop() ? context.pop() : context.go('/home');
                   },
                 ),
@@ -364,27 +388,91 @@ class _ReadingScreenState extends State<ReadingScreen>
 // ─────────────────────────────────────────────────────────────
 
 /// Displays the paragraph and waits for the student to tap "Start".
+/// Shows a "Listen First" button so the child can hear pronunciation before recording.
 class _ReadyView extends StatelessWidget {
-  const _ReadyView({required this.text});
+  const _ReadyView({required this.text, required this.onListen});
   final String text;
+  final VoidCallback onListen;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Instruction banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFBBDEFB), width: 1.5),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('👂', style: TextStyle(fontSize: 18)),
+                SizedBox(width: 8),
+                Text(
+                  'استمع أولاً ثم اقرأ بصوت عالٍ',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1565C0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Paragraph card
+          _ParagraphCard(text: text),
+          const SizedBox(height: 24),
+
+          // Listen First button
+          GestureDetector(
+            onTap: onListen,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1565C0).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
+                  SizedBox(width: 10),
+                  Text(
+                    'استمع أولاً',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           const Text(
-            AppStrings.readingInstruction,
+            'اضغط للاستماع قبل القراءة',
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 12),
-          _ParagraphCard(text: text),
         ],
       ),
     );
@@ -491,21 +579,63 @@ class _ProcessingView extends StatelessWidget {
   }
 }
 
-/// Full result view — accuracy arc + pronunciation score card + word breakdown.
+/// Full result view — accuracy arc + score card + missed/incorrect word sections + word breakdown.
 class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result});
+  const _ResultView({
+    required this.result,
+    required this.onSpeakWord,
+    required this.onListenAgain,
+  });
+
   final ReadingAssessmentResult result;
+  final ValueChanged<String> onSpeakWord;
+  final VoidCallback onListenAgain;
 
   @override
   Widget build(BuildContext context) {
     debugPrint('[RESULT BUILD] result widget built');
-    debugPrint('[RESULT BUILD] score=${result.accuracy} feedback="${result.feedback}" originalText="${result.originalText}" recognizedText="${result.recognizedText}"');
+    debugPrint(
+      '[RESULT BUILD] score=${result.accuracy} feedback="${result.feedback}" originalText="${result.originalText}" recognizedText="${result.recognizedText}"',
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
       children: [
         AccuracyIndicatorWidget(accuracy: result.pronunciationScore),
         const SizedBox(height: 16),
         _PronunciationScoreCard(result: result),
+
+        // Listen and Try Again — shown whenever pronunciation is not perfect
+        if (result.pronunciationScore < 100) ...[
+          const SizedBox(height: 16),
+          _ListenAgainButton(onPressed: onListenAgain),
+        ],
+
+        // Words You Missed section
+        if (result.missingWords.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _WordPronunciationSection(
+            title: 'كلمات فاتتك',
+            emoji: '🔍',
+            words: result.missingWords,
+            bgColor: const Color(0xFFFFF8E1),
+            borderColor: const Color(0xFFFFE082),
+            onSpeak: onSpeakWord,
+          ),
+        ],
+
+        // Incorrect words — let the child practise them
+        if (result.incorrectWords.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _WordPronunciationSection(
+            title: 'تدرب على هذه الكلمات',
+            emoji: '💪',
+            words: result.incorrectWords,
+            bgColor: const Color(0xFFFCE4EC),
+            borderColor: const Color(0xFFEF9A9A),
+            onSpeak: onSpeakWord,
+          ),
+        ],
+
         const SizedBox(height: 24),
         ReadingResultWidget(result: result),
       ],
@@ -706,6 +836,164 @@ class _BottomBar extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         child: child,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Child-friendly pronunciation helpers (result screen)
+// ─────────────────────────────────────────────────────────────
+
+/// Full-width button that replays the original sentence via TTS.
+class _ListenAgainButton extends StatelessWidget {
+  const _ListenAgainButton({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1565C0),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1565C0).withValues(alpha: 0.30),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.volume_up_rounded, color: Colors.white, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'استمع وحاول مجدداً',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card section showing a list of words (missed or incorrect) each with a
+/// speaker button so the child can hear individual word pronunciation.
+class _WordPronunciationSection extends StatelessWidget {
+  const _WordPronunciationSection({
+    required this.title,
+    required this.emoji,
+    required this.words,
+    required this.bgColor,
+    required this.borderColor,
+    required this.onSpeak,
+  });
+
+  final String title;
+  final String emoji;
+  final List<String> words;
+  final Color bgColor;
+  final Color borderColor;
+  final ValueChanged<String> onSpeak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: words
+                .map((word) => _SpeakableWordChip(
+                      word: word,
+                      onSpeak: () => onSpeak(word),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A tappable chip that shows a word alongside a speaker icon.
+class _SpeakableWordChip extends StatelessWidget {
+  const _SpeakableWordChip({required this.word, required this.onSpeak});
+  final String word;
+  final VoidCallback onSpeak;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onSpeak,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFBBDEFB), width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.volume_up_rounded,
+              color: Color(0xFF1565C0),
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              word,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+              textDirection: TextDirection.rtl,
+            ),
+          ],
+        ),
       ),
     );
   }

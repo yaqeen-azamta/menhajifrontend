@@ -33,6 +33,7 @@ dependencies:
   # ── Voice recording ────────────────────────────────────────
   record: ^6.1.1
 
+
   # ── Permissions & file paths ───────────────────────────────
   permission_handler: ^11.0.0
   path_provider: ^2.1.0

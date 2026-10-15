@@ -1,12 +1,12 @@
 // ════════════════════════════════════════════════════════════════════════════
-// drag_drop_question — student drags tokens into named target slots.
+// drag_drop_question — student drags tokens into named target columns.
 //
-// Question shape:
-//   targets : ["Animal",  "Plant",  "Mineral"]
-//   tokens  : ["Dog",     "Rose",   "Gold",   "Cat"]
+// Answer format sent to backend: "target1=token1,target1=token2,target2=token3"
 //
-// Student drags each token into the correct target. Backend receives
-// "Animal=Dog,Animal=Cat,Plant=Rose,Mineral=Gold" as the answer string.
+// tokenStatus  — passed from parent after a wrong-answer check.
+//                Maps token → isCorrect so chips show green / red borders.
+// onInteraction — called on every drag so parent can clear the tokenStatus
+//                 highlight state once the student starts fixing their answer.
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
@@ -17,47 +17,78 @@ import '../fat_button.dart';
 import '../quiz/question_callback.dart';
 import '../quiz/shared/question_header.dart';
 
+// ─── Payload carried by every Draggable so drop targets know origin ──────────
+
+class _DragPayload {
+  final String token;
+  final String? fromTarget; // null  → dragging from the word bank
+  const _DragPayload({required this.token, this.fromTarget});
+}
+
+// ─── Public widget ────────────────────────────────────────────────────────────
+
 class DragDropQuestion extends StatefulWidget {
   const DragDropQuestion({
     super.key,
     required this.question,
     required this.onAnswer,
     required this.locked,
+    this.tokenStatus,
+    this.onInteraction,
   });
 
   final Question question;
   final OnAnswerSubmitted onAnswer;
   final bool locked;
 
+  /// token → isCorrect, populated by parent after a wrong-answer check.
+  /// null means "not yet checked" — no colour highlights.
+  final Map<String, bool>? tokenStatus;
+
+  /// Fired on every drag action so the parent can clear stale highlights.
+  final VoidCallback? onInteraction;
+
   @override
   State<DragDropQuestion> createState() => _DragDropQuestionState();
 }
 
 class _DragDropQuestionState extends State<DragDropQuestion> {
-  /// targetLabel → list of dropped tokens
+  /// targetLabel → ordered list of tokens dropped into that target.
   late final Map<String, List<String>> _drops = {
     for (final t in widget.question.targets) t: <String>[],
   };
 
+  /// Tokens not yet placed in any target.
   late final List<String> _bank = List.from(widget.question.tokens);
 
-  void _drop(String token, String target) {
+  // ── Drag helpers ────────────────────────────────────────────────────────
+
+  void _moveToTarget(String token, String? fromTarget, String toTarget) {
     if (widget.locked) return;
+    if (fromTarget == toTarget) return;
+    widget.onInteraction?.call();
     setState(() {
-      _bank.remove(token);
-      _drops[target]!.add(token);
+      if (fromTarget != null) {
+        _drops[fromTarget]?.remove(token);
+      } else {
+        _bank.remove(token);
+      }
+      _drops[toTarget]?.add(token);
     });
   }
 
   void _returnToBank(String token, String fromTarget) {
     if (widget.locked) return;
+    widget.onInteraction?.call();
     setState(() {
-      _drops[fromTarget]!.remove(token);
+      _drops[fromTarget]?.remove(token);
       _bank.add(token);
     });
   }
 
-  bool get _canSubmit => _bank.isEmpty;
+  // ── Submission ──────────────────────────────────────────────────────────
+
+  bool get _canSubmit => _bank.isEmpty && !widget.locked;
 
   void _submit() {
     final pairs = <String>[];
@@ -71,140 +102,276 @@ class _DragDropQuestionState extends State<DragDropQuestion> {
     );
   }
 
+  // ── Chip colour helpers (Task 5) ────────────────────────────────────────
+
+  Color _chipBorder(String token, {Color? fallback}) {
+    final s = widget.tokenStatus;
+    if (s == null) return fallback ?? const Color(0xFFCCCCCC);
+    final ok = s[token];
+    if (ok == null) return fallback ?? const Color(0xFFCCCCCC);
+    return ok ? const Color(0xFF2E7D32) : AppColors.danger;
+  }
+
+  Color _chipBackground(String token, {Color? fallback}) {
+    final s = widget.tokenStatus;
+    if (s == null) return fallback ?? Colors.white;
+    final ok = s[token];
+    if (ok == null) return fallback ?? Colors.white;
+    return ok ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final q = widget.question;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          QuestionHeader(prompt: q.questionText, audioUrl: q.audioUrl),
-          const SizedBox(height: 24),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            QuestionHeader(prompt: q.questionText, audioUrl: q.audioUrl),
+            const SizedBox(height: 20),
 
-          // Target zones
-          ...q.targets.map((target) {
-            final tokens = _drops[target] ?? [];
-            return DragTarget<String>(
-              onWillAcceptWithDetails: (details) => !widget.locked,
-              onAcceptWithDetails: (details) => _drop(details.data, target),
-              builder: (ctx, candidates, rejected) {
+            // ── Target zones — vertical, one per column ────────────────
+            ...q.targets.map(_buildTargetZone),
+
+            const SizedBox(height: 16),
+
+            // ── Word-bank label ────────────────────────────────────────
+            const Text(
+              'بنك الكلمات',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Draggable word bank ────────────────────────────────────
+            DragTarget<_DragPayload>(
+              onWillAcceptWithDetails: (d) =>
+                  !widget.locked && d.data.fromTarget != null,
+              onAcceptWithDetails: (d) =>
+                  _returnToBank(d.data.token, d.data.fromTarget!),
+              builder: (_, candidates, _) {
                 final hovering = candidates.isNotEmpty;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(14),
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  constraints: const BoxConstraints(minHeight: 64),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: hovering
-                        ? AppColors.primary.withValues(alpha: 0.1)
-                        : Colors.white,
+                        ? AppColors.primary.withValues(alpha: 0.07)
+                        : const Color(0xFFF5F5F5),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: hovering
                           ? AppColors.primary
-                          : const Color(0xFFE5E5E5),
+                          : const Color(0xFFE0E0E0),
                       width: 2,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        target,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (tokens.isEmpty)
-                        Container(
-                          height: 36,
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'Drop here',
+                  child: _bank.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'تم وضع جميع الكلمات ✓',
                             style: TextStyle(
                               color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                             ),
                           ),
                         )
-                      else
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: tokens
-                              .map(
-                                (t) => GestureDetector(
-                                  onTap: () => _returnToBank(t, target),
-                                  child: _tokenChip(
-                                    t,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      : Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: _bank.map(_buildBankChip).toList(),
                         ),
-                    ],
-                  ),
                 );
               },
-            );
-          }),
+            ),
 
-          const SizedBox(height: 12),
-          const Text(
-            'Drag from below',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-              color: AppColors.textSecondary,
-              letterSpacing: 1.2,
+            const SizedBox(height: 24),
+
+            FatButton(
+              label: 'تحقق من الإجابة',
+              onPressed: _canSubmit ? _submit : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Target zone card ─────────────────────────────────────────────────────
+
+  Widget _buildTargetZone(String target) {
+    final tokens = _drops[target] ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Column label
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              target,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
 
-          // Bank
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _bank.map((t) {
-              return Draggable<String>(
-                data: t,
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: _tokenChip(t, color: AppColors.secondary),
+          // Drop zone
+          DragTarget<_DragPayload>(
+            onWillAcceptWithDetails: (d) =>
+                !widget.locked && d.data.fromTarget != target,
+            onAcceptWithDetails: (d) =>
+                _moveToTarget(d.data.token, d.data.fromTarget, target),
+            builder: (_, candidates, _) {
+              final hovering = candidates.isNotEmpty;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                constraints: const BoxConstraints(minHeight: 72),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: hovering
+                      ? AppColors.primary.withValues(alpha: 0.08)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: hovering
+                        ? AppColors.primary
+                        : const Color(0xFFE0E0E0),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                childWhenDragging: Opacity(opacity: 0.3, child: _tokenChip(t)),
-                child: _tokenChip(t),
+                child: tokens.isEmpty
+                    ? Center(
+                        child: Text(
+                          hovering ? 'أفلت هنا' : 'اسحب الكلمة هنا',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.start,
+                        children: tokens
+                            .map((t) => _buildZoneChip(t, target))
+                            .toList(),
+                      ),
               );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 28),
-          FatButton(
-            label: 'Check answer',
-            onPressed: (_canSubmit && !widget.locked) ? _submit : null,
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _tokenChip(String text, {Color? color}) {
-    final c = color ?? const Color(0xFFE5E5E5);
+  // ── Chip: inside a drop zone ─────────────────────────────────────────────
+
+  Widget _buildZoneChip(String token, String fromTarget) {
+    return Draggable<_DragPayload>(
+      data: _DragPayload(token: token, fromTarget: fromTarget),
+      feedback: Material(
+        color: Colors.transparent,
+        child: _Chip(
+          token: token,
+          borderColor: AppColors.primary,
+          bgColor: AppColors.primary.withValues(alpha: 0.12),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _Chip(token: token),
+      ),
+      child: GestureDetector(
+        onTap: widget.locked ? null : () => _returnToBank(token, fromTarget),
+        child: _Chip(
+          token: token,
+          borderColor: _chipBorder(token),
+          bgColor: _chipBackground(token),
+        ),
+      ),
+    );
+  }
+
+  // ── Chip: inside the word bank ───────────────────────────────────────────
+
+  Widget _buildBankChip(String token) {
+    return Draggable<_DragPayload>(
+      data: _DragPayload(token: token),
+      feedback: Material(
+        color: Colors.transparent,
+        child: _Chip(
+          token: token,
+          borderColor: AppColors.secondary,
+          bgColor: AppColors.secondary.withValues(alpha: 0.12),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: _Chip(token: token)),
+      child: _Chip(token: token),
+    );
+  }
+}
+
+// ─── Reusable chip ────────────────────────────────────────────────────────────
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.token,
+    this.borderColor,
+    this.bgColor,
+  });
+
+  final String token;
+  final Color? borderColor;
+  final Color? bgColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = borderColor ?? const Color(0xFFCCCCCC);
+    final bg = bgColor ?? Colors.white;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color == null ? Colors.white : color.withValues(alpha: 0.15),
+        color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c, width: 2),
+        border: Border.all(color: border, width: 2),
         boxShadow: [
-          BoxShadow(color: c, offset: const Offset(0, 3), blurRadius: 0),
+          BoxShadow(
+            color: border.withValues(alpha: 0.22),
+            offset: const Offset(0, 2),
+            blurRadius: 4,
+          ),
         ],
       ),
       child: Text(
-        text,
+        token,
+        textDirection: TextDirection.rtl,
         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
       ),
     );

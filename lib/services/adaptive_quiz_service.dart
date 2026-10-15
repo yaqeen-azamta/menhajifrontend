@@ -30,11 +30,25 @@ class AdaptiveQuizService {
   // transparently returns that attempt instead of creating a new one.
   // Pass studentId when called with a parent JWT so the backend resolves
   // the correct child instead of the parent account.
-  Future<AdaptiveQuizPayload> generateOrResume(int lessonId,
-      {int? studentId}) async {
+  Future<AdaptiveQuizPayload> generateOrResume(
+    int lessonId, {
+    int? studentId,
+  }) async {
     final query = studentId != null ? '?studentId=$studentId' : '';
+
     final res = await _api.get('/api/quiz/adaptive/$lessonId$query');
-    return AdaptiveQuizPayload.fromJson(_unwrap(res));
+
+    print('==============================');
+    print('ADAPTIVE RESPONSE = $res');
+
+    final data = _unwrap(res);
+
+    print('QUIZ SOURCE = ${data['source']}');
+    print('ATTEMPT ID = ${data['attemptId']}');
+    print('QUESTION COUNT = ${data['questionCount']}');
+    print('==============================');
+
+    return AdaptiveQuizPayload.fromJson(data);
   }
 
   // ── Batch submit ───────────────────────────────────────────
@@ -49,10 +63,9 @@ class AdaptiveQuizService {
     int? studentId,
   }) async {
     final query = studentId != null ? '?studentId=$studentId' : '';
-    final res = await _api.post(
-      '/api/quiz/adaptive/$attemptId/submit$query',
-      {'answers': answers.map((a) => a.toJson()).toList()},
-    );
+    final res = await _api.post('/api/quiz/adaptive/$attemptId/submit$query', {
+      'answers': answers.map((a) => a.toJson()).toList(),
+    });
     return AdaptiveQuizResult.fromJson(_unwrap(res), totalCount: totalCount);
   }
 

@@ -9,6 +9,8 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/parent_progress_service.dart';
 import '../theme/theme.dart';
+import '../widgets/avatar_companion/avatar_companion.dart';
+import '../widgets/avatar_companion/avatar_messages.dart';
 import '../widgets/fat_button.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -328,6 +330,13 @@ class _RewardsScreenState extends State<RewardsScreen>
                           ),
                           const SizedBox(height: 16),
                         ],
+
+                        // Avatar companion — motivational reward message
+                        AvatarCompanion(
+                          avatarEmoji: av.emoji,
+                          message: AvatarMessages.reward(_savedAvatarId),
+                        ),
+                        const SizedBox(height: 16),
 
                         // Student profile card
                         _StudentCard(

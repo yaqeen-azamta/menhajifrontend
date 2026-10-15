@@ -8,6 +8,8 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/parent_progress_service.dart';
 import '../theme/theme.dart';
+import '../widgets/avatar_companion/avatar_companion.dart';
+import '../widgets/avatar_companion/avatar_messages.dart';
 import '../widgets/fat_button.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -103,9 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
           try {
             debugPrint('HomeScreen: retrying after switchToParent refresh');
             await AuthService.instance.switchToParent();
-            final dashboard = await ProgressService.instance.getStudentDashboard(
-              studentId: _studentId,
-            );
+            final dashboard = await ProgressService.instance
+                .getStudentDashboard(studentId: _studentId);
             if (mounted) {
               setState(() {
                 _dashboard = dashboard;
@@ -230,10 +231,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final dashboard = _dashboard!;
     final name = _studentName ?? dashboard.fullName;
-    final avatar = AvatarConfig.resolve(_studentAvatar ?? dashboard.avatarId).emoji;
+    final avatar = AvatarConfig.resolve(
+      _studentAvatar ?? dashboard.avatarId,
+    ).emoji;
 
-    final completedLessons =
-        dashboard.subjects.fold(0, (s, e) => s + e.completedLessons);
+    final completedLessons = dashboard.subjects.fold(
+      0,
+      (s, e) => s + e.completedLessons,
+    );
     final dailyGoal = dashboard.dailyGoal;
     final progressFraction = dailyGoal == 0
         ? 0.0
@@ -276,12 +281,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(avatar, style: const TextStyle(fontSize: 20)),
+                              Text(
+                                avatar,
+                                style: const TextStyle(fontSize: 20),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 name,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w900),
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                               const Icon(
                                 Icons.keyboard_arrow_down,
@@ -294,7 +303,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const Spacer(),
                       _StatPill(
-                          icon: '🔥', value: '${dashboard.currentStreak}'),
+                        icon: '🔥',
+                        value: '${dashboard.currentStreak}',
+                      ),
                       const SizedBox(width: 8),
                       _StatPill(icon: '⭐', value: '${dashboard.totalPoints}'),
                     ],
@@ -324,6 +335,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+
+                // ── AVATAR COMPANION — welcome message ────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: AvatarCompanion(
+                    avatarEmoji: avatar,
+                    message: AvatarMessages.welcome(name, _studentAvatar),
+                    audioType: 'welcome',
                   ),
                 ),
 
@@ -428,7 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: AppStrings.homeStart,
                           onPressed: () async {
                             await context.push(
-                                '/lesson/${recommended.lessonId}');
+                              '/lesson/${recommended.lessonId}',
+                            );
                             await _load();
                           },
                         ),
@@ -462,8 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       runSpacing: 12,
                       children: dashboard.subjects.map((s) {
                         final key = _subjectKey(s.name);
-                        final w =
-                            (MediaQuery.of(context).size.width - 64) / 2;
+                        final w = (MediaQuery.of(context).size.width - 64) / 2;
                         return SizedBox(
                           width: w,
                           child: _SubjectCard(
@@ -553,7 +574,7 @@ class _SubjectCard extends StatelessWidget {
                   ? Image.network(
                       coverImage!.startsWith('http')
                           ? coverImage!
-                          : 'http://10.0.2.2:8080$coverImage',
+                          : 'http://localhost:8080$coverImage',
                       width: double.infinity,
                       height: 120,
                       fit: BoxFit.cover,

@@ -28,6 +28,11 @@ import '../questions/reorder_words_question.dart';
 import '../questions/true_false_question.dart';
 import '../questions/voice_answer_question.dart';
 import '../questions/write_answer_question.dart';
+import '../questions/story_question.dart';
+import '../questions/count_group_question.dart';
+import '../questions/matching_question.dart';
+import '../questions/coloring_question.dart';
+import '../questions/letter_completion_question.dart';
 
 class QuestionRenderer extends StatelessWidget {
   const QuestionRenderer({
@@ -131,6 +136,53 @@ class QuestionRenderer extends StatelessWidget {
         );
       case QuestionType.reading:
         return const SizedBox.shrink();
+      case QuestionType.story:
+        return StoryQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
+      case QuestionType.countGroup:
+        return CountGroupQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
+      case QuestionType.matching:
+        print('================ MATCHING ================');
+        print('QUESTION ID = ${question.id}');
+        print('LEFT COUNT = ${question.leftPairs.length}');
+        print('RIGHT COUNT = ${question.rightPairs.length}');
+        print('RAW = ${question.raw}');
+        print('==========================================');
+
+        return MatchingQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
+
+      case QuestionType.coloring:
+        print('================ COLORING ================');
+        print('QUESTION ID = ${question.id}');
+        print('OBJECTS COUNT = ${question.coloringObjects.length}');
+        print('RAW = ${question.raw}');
+        print('==========================================');
+
+        return ColoringQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
+      case QuestionType.tracing:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case QuestionType.letterCompletion:
+        return LetterCompletionQuestion(
+          question: question,
+          onAnswer: onAnswer,
+          locked: locked,
+        );
     }
   }
 }

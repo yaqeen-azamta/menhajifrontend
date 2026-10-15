@@ -1,58 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/question_model.dart';
 import 'api_client.dart';
-
-// ─────────────────────────────────────────────────────────────
-// Models
-// ─────────────────────────────────────────────────────────────
-
-class QuestionOption {
-  final String text;
-  final String imageUrl;
-
-  const QuestionOption({required this.text, required this.imageUrl});
-
-  factory QuestionOption.fromJson(Map<String, dynamic> json) {
-    return QuestionOption(
-      text: json['text']?.toString() ?? '',
-      imageUrl: json['imageUrl']?.toString() ?? '',
-    );
-  }
-}
-
-class QuestionModel {
-  final int id;
-  final String questionText;
-  final String? imageUrl;
-  final List<QuestionOption> options;
-  final String? correctAnswer;
-  final String? type;
-
-  const QuestionModel({
-    required this.id,
-    required this.questionText,
-    required this.options,
-    this.imageUrl,
-    this.correctAnswer,
-    this.type,
-  });
-
-  factory QuestionModel.fromJson(Map<String, dynamic> json) {
-    return QuestionModel(
-      id: json['id'] as int,
-      questionText: json['questionText']?.toString() ?? '',
-      imageUrl: json['imageUrl']?.toString(),
-      correctAnswer: json['correctAnswer']?.toString(),
-      type: json['type']?.toString(),
-      options:
-          (json['options'] as List<dynamic>?)?.map((e) {
-            if (e is String) return QuestionOption(text: e, imageUrl: '');
-            return QuestionOption.fromJson(e as Map<String, dynamic>);
-          }).toList() ??
-          [],
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────
 // SaveAnswerResult — returned by saveAnswer()
@@ -126,7 +75,8 @@ class QuestionService {
   static final instance = QuestionService._();
 
   final _api = ApiClient.instance;
-  Future<List<QuestionModel>> getQuestionsByLesson(int lessonId) async {
+
+  Future<List<Question>> getQuestionsByLesson(int lessonId) async {
     print('🔥🔥🔥 getQuestionsByLesson called');
     print('Lesson ID = $lessonId');
 
@@ -150,7 +100,7 @@ class QuestionService {
     print('=======================================================');
 
     final questions = list
-        .map((e) => QuestionModel.fromJson(e as Map<String, dynamic>))
+        .map((e) => Question.fromJson(e as Map<String, dynamic>))
         .toList();
 
     print('================ AFTER PARSING ==================');
@@ -160,6 +110,9 @@ class QuestionService {
       print('TEXT = ${q.questionText}');
       print('TYPE = ${q.type}');
       print('OPTIONS COUNT = ${q.options.length}');
+      print('LEFT PAIRS COUNT = ${q.leftPairs.length}');
+      print('RIGHT PAIRS COUNT = ${q.rightPairs.length}');
+      print('COLORING OBJECTS COUNT = ${q.coloringObjects.length}');
 
       for (final opt in q.options) {
         print('OPTION => text="${opt.text}" image="${opt.imageUrl}"');

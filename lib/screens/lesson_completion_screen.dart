@@ -2,8 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/avatar_config.dart';
 import '../theme/theme.dart';
+import '../widgets/avatar_companion/avatar_companion.dart';
+import '../widgets/avatar_companion/avatar_messages.dart';
 import '../widgets/fat_button.dart';
 
 class LessonCompletionScreen extends StatefulWidget {
@@ -16,6 +20,9 @@ class LessonCompletionScreen extends StatefulWidget {
 
 class _LessonCompletionScreenState extends State<LessonCompletionScreen>
     with TickerProviderStateMixin {
+  String _avatarEmoji = '🐰';
+  String? _avatarId;
+
   late final AnimationController _fadeCtrl;
   late final AnimationController _scaleCtrl;
   late final AnimationController _slideCtrl;
@@ -60,6 +67,16 @@ class _LessonCompletionScreenState extends State<LessonCompletionScreen>
     });
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted) _slideCtrl.forward();
+    });
+
+    // Load the student's avatar from local storage (fire-and-forget).
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      final id = prefs.getString('active_student_avatar');
+      setState(() {
+        _avatarId = id;
+        _avatarEmoji = AvatarConfig.resolve(id).emoji;
+      });
     });
   }
 
@@ -128,7 +145,18 @@ class _LessonCompletionScreenState extends State<LessonCompletionScreen>
                         textAlign: TextAlign.center,
                       ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 20),
+
+                      // ── Avatar Companion — completion message ────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: AvatarCompanion(
+                          avatarEmoji: _avatarEmoji,
+                          message: AvatarMessages.completion(_avatarId),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
 
                       // ── Animated character circle ─────────────────
                       ScaleTransition(

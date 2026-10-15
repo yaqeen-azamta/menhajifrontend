@@ -30,11 +30,10 @@ class AdaptiveQuizItem {
   factory AdaptiveQuizItem.fromJson(Map<String, dynamic> j) => AdaptiveQuizItem(
     questionText: j['questionText'] as String? ?? '',
     type: (j['type'] as String? ?? 'MCQ').toUpperCase(),
-    options: (j['options'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
+    options:
+        (j['options'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
         const [],
-    questionIndex: j['questionIndex'] as int? ?? 0,
+    questionIndex: (j['questionIndex'] as int?) ?? (j['index'] as int?) ?? 0,
   );
 }
 
@@ -60,7 +59,8 @@ class AdaptiveQuizPayload {
       AdaptiveQuizPayload(
         attemptId: j['attemptId'] as int,
         difficulty: j['difficulty'] as int? ?? 1,
-        focusSkills: (j['focusSkills'] as List<dynamic>?)
+        focusSkills:
+            (j['focusSkills'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],
@@ -166,17 +166,16 @@ class AdaptiveQuizResult {
     score: j['score'] as int? ?? 0,
     correctCount: j['correctCount'] as int? ?? 0,
     totalCount: totalCount,
-    feedback: (j['feedback'] as List<dynamic>?)
+    feedback:
+        (j['feedback'] as List<dynamic>?)
             ?.map(
-              (e) =>
-                  AdaptiveAnswerFeedback.fromJson(e as Map<String, dynamic>),
+              (e) => AdaptiveAnswerFeedback.fromJson(e as Map<String, dynamic>),
             )
             .toList() ??
         const [],
-    updatedSkills: (j['updatedSkills'] as List<dynamic>?)
-            ?.map(
-              (e) => SkillSummary.fromJson(e as Map<String, dynamic>),
-            )
+    updatedSkills:
+        (j['updatedSkills'] as List<dynamic>?)
+            ?.map((e) => SkillSummary.fromJson(e as Map<String, dynamic>))
             .toList() ??
         const [],
   );

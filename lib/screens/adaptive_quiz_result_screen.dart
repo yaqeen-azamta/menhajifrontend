@@ -20,10 +20,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_strings.dart';
 import '../models/adaptive_quiz_models.dart';
+import '../models/avatar_config.dart';
 import '../theme/theme.dart';
+import '../widgets/avatar_companion/avatar_messages.dart';
+import '../widgets/avatar_companion/avatar_speech_bubble.dart';
 import '../widgets/fat_button.dart';
 
 class AdaptiveQuizResultScreen extends StatefulWidget {
@@ -50,6 +54,10 @@ class _AdaptiveQuizResultScreenState extends State<AdaptiveQuizResultScreen>
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 
+  String _avatarEmoji = '🐰';
+  String? _avatarId;
+  String _studentName = '';
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +67,17 @@ class _AdaptiveQuizResultScreenState extends State<AdaptiveQuizResultScreen>
     );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
     _ctrl.forward();
+
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      final id = prefs.getString('active_student_avatar');
+      final name = prefs.getString('active_student_name') ?? '';
+      setState(() {
+        _avatarId = id;
+        _avatarEmoji = AvatarConfig.resolve(id).emoji;
+        _studentName = name;
+      });
+    });
   }
 
   @override
@@ -105,6 +124,17 @@ class _AdaptiveQuizResultScreenState extends State<AdaptiveQuizResultScreen>
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 child: Column(
                   children: [
+                    // Avatar + motivational message
+                    AvatarSpeechBubble(
+                      avatarEmoji: _avatarEmoji,
+                      message: AvatarMessages.quizResult(
+                        _avatarId,
+                        score,
+                        _studentName,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Stats row
                     _StatsRow(result: r),
                     const SizedBox(height: 16),

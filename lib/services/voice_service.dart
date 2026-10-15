@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -33,30 +32,30 @@ class VoiceService {
   // Backend must expose POST /api/audio/tts with body {text, language}.
   // Response: { data: { audioUrl: "..." } }  OR  { data: { audio_base64: "..." } }
 
-  Future<void> speak(String text, {String language = 'ar'}) async {
+  Future<void> speak(String text, {String type = 'general'}) async {
     try {
       await _player.stop();
 
-      final res = await _api.post('/api/audio/tts', {
+      final res = await _api.post('/api/audio/speak', {
         'text': text,
-        'language': language,
+        'type': type,
       });
-
       final data = res['data'] as Map<String, dynamic>? ?? {};
-
-      // ── Option A: backend returns a URL ───────────────────
       final audioUrl = data['audioUrl'] as String?;
-      if (audioUrl != null && audioUrl.isNotEmpty) {
-        await _player.play(UrlSource(audioUrl));
-        return;
-      }
+      if (audioUrl == null || audioUrl.isEmpty) return;
 
-      // ── Option B: backend returns base64-encoded bytes ────
-      final b64 = data['audio_base64'] as String?;
-      if (b64 != null && b64.isNotEmpty) {
-        final bytes = base64Decode(b64);
-        await _player.play(BytesSource(bytes, mimeType: 'audio/mpeg'));
-      }
+      final cleanPath = audioUrl.startsWith('/')
+          ? audioUrl.substring(1)
+          : audioUrl;
+
+      final fullUrl = audioUrl.startsWith('http')
+          ? audioUrl
+          : '$kBaseUrl/$cleanPath';
+
+      print('audioUrl = $audioUrl');
+      print('fullUrl = $fullUrl');
+
+      await _player.play(UrlSource(fullUrl));
     } catch (_) {
       // Fail silently — audio is non-critical
     }

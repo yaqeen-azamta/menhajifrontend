@@ -2,8 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../services/parent_progress_service.dart';
-import '../theme/theme.dart';
 import '../models/avatar_config.dart';
+
+// ─── Professional parent-portal palette ───────────────────────
+const _kPrimary = Color(0xFF1E3A5F);
+const _kSecondary = Color(0xFF2563EB);
+const _kSuccess = Color(0xFF10B981);
+const _kWarning = Color(0xFFF59E0B);
+const _kDanger = Color(0xFFEF4444);
+const _kPurple = Color(0xFF7C3AED);
+const _kBg = Color(0xFFF8FAFC);
+const _kCard = Color(0xFFFFFFFF);
+const _kText = Color(0xFF0F172A);
+const _kTextSub = Color(0xFF64748B);
+const _kBorder = Color(0xFFE2E8F0);
 
 // ─────────────────────────────────────────────────────────────
 // Entry point
@@ -43,7 +55,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     );
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 900),
     );
     _anim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic);
     _load();
@@ -60,17 +72,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       if (mounted) setState(() => _loading = false);
       return;
     }
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       await AuthService.instance.switchToParent();
       final child = widget.dashboard.children[_selectedIndex];
-      final detail = await ParentService.instance.getChildDetail(
-        child.studentId,
-      );
+      final detail = await ParentService.instance.getChildDetail(child.studentId);
       if (mounted) {
         setState(() {
           _detail = detail;
@@ -79,11 +90,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         _animCtrl.forward(from: 0);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -97,57 +109,56 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     _load();
   }
 
-  ChildSummaryModel get _currentChild =>
-      widget.dashboard.children[_selectedIndex];
+  ChildSummaryModel get _currentChild => widget.dashboard.children[_selectedIndex];
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F3E8),
+        backgroundColor: _kBg,
         body: Column(
           children: [
-            _GradientHeader(
+            _ProfessionalHeader(
               onBack: () => Navigator.pop(context),
               onRefresh: _load,
             ),
             if (widget.dashboard.children.length > 1)
-              _ChildTabBar(
+              _StudentSelector(
                 children: widget.dashboard.children,
                 selectedIndex: _selectedIndex,
                 onSelect: _selectChild,
               ),
             Expanded(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
+                duration: const Duration(milliseconds: 300),
                 transitionBuilder: (child, anim) => FadeTransition(
                   opacity: anim,
                   child: SlideTransition(
                     position: Tween<Offset>(
-                      begin: const Offset(0, 0.05),
+                      begin: const Offset(0, 0.04),
                       end: Offset.zero,
-                    ).animate(anim),
+                    ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
                     child: child,
                   ),
                 ),
                 child: widget.dashboard.children.isEmpty
                     ? const _EmptyState(key: ValueKey('empty'))
                     : _loading
-                    ? const _LoadingState(key: ValueKey('loading'))
-                    : _error != null
-                    ? _ErrorState(
-                        key: const ValueKey('error'),
-                        message: _error!,
-                        onRetry: _load,
-                      )
-                    : _ContentScroll(
-                        key: ValueKey('content-$_selectedIndex'),
-                        child: _currentChild,
-                        detail: _detail!,
-                        animation: _anim,
-                        onRefresh: _load,
-                      ),
+                        ? const _LoadingState(key: ValueKey('loading'))
+                        : _error != null
+                            ? _ErrorState(
+                                key: const ValueKey('error'),
+                                message: _error!,
+                                onRetry: _load,
+                              )
+                            : _ContentScroll(
+                                key: ValueKey('content-$_selectedIndex'),
+                                child: _currentChild,
+                                detail: _detail!,
+                                animation: _anim,
+                                onRefresh: _load,
+                              ),
               ),
             ),
           ],
@@ -158,70 +169,83 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 }
 
 // ─────────────────────────────────────────────────────────────
-// Gradient header
+// Professional white header
 // ─────────────────────────────────────────────────────────────
-class _GradientHeader extends StatelessWidget {
-  const _GradientHeader({required this.onBack, required this.onRefresh});
+class _ProfessionalHeader extends StatelessWidget {
+  const _ProfessionalHeader({required this.onBack, required this.onRefresh});
   final VoidCallback onBack;
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final time =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFE87F24), Color(0xFFFFC81E)],
-          begin: Alignment.centerRight,
-          end: Alignment.centerLeft,
-        ),
+      decoration: BoxDecoration(
+        color: _kCard,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
           child: Row(
             children: [
-              IconButton(
-                onPressed: onBack,
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
+              _HeaderIconBtn(
+                icon: Icons.arrow_back_ios_new_rounded,
+                color: _kPrimary,
+                bgColor: const Color(0xFFF1F5F9),
+                onTap: onBack,
               ),
-              const Expanded(
+              const SizedBox(width: 14),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'لوحة تقدم أطفالي',
-                      textAlign: TextAlign.center,
+                    const Text(
+                      'بوابة ولي الأمر',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.4,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: _kText,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'تابع رحلة تعلّم طفلك',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 11,
+                          color: _kTextSub,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'آخر تحديث: $time',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _kTextSub,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onRefresh,
-                icon: const Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
+              _HeaderIconBtn(
+                icon: Icons.refresh_rounded,
+                color: _kSecondary,
+                bgColor: const Color(0xFFEFF6FF),
+                onTap: onRefresh,
               ),
             ],
           ),
@@ -231,11 +255,40 @@ class _GradientHeader extends StatelessWidget {
   }
 }
 
+class _HeaderIconBtn extends StatelessWidget {
+  const _HeaderIconBtn({
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.onTap,
+  });
+  final IconData icon;
+  final Color color, bgColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, color: color, size: 19),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
-// Child tab bar (only shown when > 1 child)
+// Student selector chips (replaces orange tab bar)
 // ─────────────────────────────────────────────────────────────
-class _ChildTabBar extends StatelessWidget {
-  const _ChildTabBar({
+class _StudentSelector extends StatelessWidget {
+  const _StudentSelector({
     required this.children,
     required this.selectedIndex,
     required this.onSelect,
@@ -247,62 +300,74 @@ class _ChildTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFD4701A), Color(0xFFE8A800)],
-          begin: Alignment.centerRight,
-          end: Alignment.centerLeft,
-        ),
-      ),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        itemCount: children.length,
-        itemBuilder: (_, i) {
-          final c = children[i];
-          final selected = i == selectedIndex;
-          return GestureDetector(
-            onTap: () => onSelect(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeInOut,
-              margin: const EdgeInsets.only(left: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: selected ? Colors.white : Colors.white24,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: selected
-                    ? [
-                        const BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+      color: _kCard,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: _kBorder),
+          const SizedBox(height: 10),
+          const Text(
+            'اختر الطالب',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _kTextSub,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(children.length, (i) {
+                final c = children[i];
+                final selected = i == selectedIndex;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: GestureDetector(
+                    onTap: () => onSelect(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected ? _kPrimary : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: selected ? _kPrimary : _kBorder,
+                          width: 1.5,
                         ),
-                      ]
-                    : [],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    AvatarConfig.resolve(c.avatarId).emoji,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    c.fullName.split(' ').first,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: selected ? AppColors.primary : Colors.white,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.school_rounded,
+                            size: 14,
+                            color: selected ? Colors.white : _kTextSub,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            c.fullName.split(' ').first,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? Colors.white : _kText,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+                );
+              }),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -328,22 +393,24 @@ class _ContentScroll extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: AppColors.primary,
+      color: _kSecondary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
         children: [
-          _ChildInfoCard(child: child, detail: detail),
-          const SizedBox(height: 16),
+          _StudentProfileCard(child: child, detail: detail),
+          const SizedBox(height: 14),
+          _KpiGrid(detail: detail, animation: animation),
+          const SizedBox(height: 14),
           _ProgressOverviewCard(detail: detail, animation: animation),
-          const SizedBox(height: 16),
-          _LastActivityCard(child: child, detail: detail),
+          const SizedBox(height: 14),
+          _RecentActivityCard(detail: detail),
           if (detail.subjectBreakdown.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _SubjectProgressSection(detail: detail, animation: animation),
           ],
-          const SizedBox(height: 16),
-          _AchievementsCard(child: child, detail: detail),
+          const SizedBox(height: 14),
+          _MilestonesCard(detail: detail),
         ],
       ),
     );
@@ -351,10 +418,10 @@ class _ContentScroll extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 1. Child info hero card
+// 1. Student profile card
 // ─────────────────────────────────────────────────────────────
-class _ChildInfoCard extends StatelessWidget {
-  const _ChildInfoCard({required this.child, required this.detail});
+class _StudentProfileCard extends StatelessWidget {
+  const _StudentProfileCard({required this.child, required this.detail});
   final ChildSummaryModel child;
   final ChildDetailModel detail;
 
@@ -375,95 +442,86 @@ class _ChildInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF73A5CA), Color(0xFF4D8AB5)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.secondary.withValues(alpha: 0.38),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
+    return _ProfCard(
+      child: Row(
         children: [
-          // Avatar circle
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white54, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+          // Avatar with active indicator
+          Stack(
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _kSecondary.withValues(alpha: 0.25),
+                    width: 2,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  AvatarConfig.resolve(child.avatarId).emoji,
+                  style: const TextStyle(fontSize: 34),
+                ),
+              ),
+              Positioned(
+                bottom: 2,
+                left: 2,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: _kSuccess,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _kCard, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          // Name + tags
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  detail.fullName,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: _kText,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _PillTag(
+                      label: _gradeLabel,
+                      color: _kPrimary,
+                      bgColor: _kPrimary.withValues(alpha: 0.08),
+                    ),
+                    _PillTag(
+                      label: 'نشط',
+                      color: _kSuccess,
+                      bgColor: _kSuccess.withValues(alpha: 0.10),
+                      icon: Icons.circle,
+                      iconSize: 6,
+                    ),
+                  ],
                 ),
               ],
             ),
-            alignment: Alignment.center,
-            child: Text(
-              AvatarConfig.resolve(child.avatarId).emoji,
-              style: const TextStyle(fontSize: 54),
-            ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            detail.fullName,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0x33FFFFFF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              _gradeLabel,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _StatChip(
-                emoji: '⭐',
-                value: '${detail.totalPoints}',
-                label: 'نجمة',
-              ),
-              const SizedBox(width: 12),
-              _StatChip(
-                emoji: '🔥',
-                value: '${detail.currentStreak}',
-                label: 'يوم',
-              ),
-              const SizedBox(width: 12),
-              _StatChip(
-                emoji: '✅',
-                value: '${detail.lessonsCompleted}',
-                label: 'درس',
-              ),
-            ],
+          const SizedBox(width: 12),
+          // Mastery ring
+          _SmallRing(
+            value: detail.overallMastery / 100,
+            color: _kSecondary,
+            size: 56,
+            label: 'إتقان',
           ),
         ],
       ),
@@ -471,41 +529,40 @@ class _ChildInfoCard extends StatelessWidget {
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.emoji,
-    required this.value,
+class _PillTag extends StatelessWidget {
+  const _PillTag({
     required this.label,
+    required this.color,
+    required this.bgColor,
+    this.icon,
+    this.iconSize = 11.0,
   });
-  final String emoji, value, label;
+  final String label;
+  final Color color, bgColor;
+  final IconData? icon;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0x33FFFFFF),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white30, width: 1),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
+          if (icon != null) ...[
+            Icon(icon, size: iconSize, color: color),
+            const SizedBox(width: 4),
+          ],
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -515,7 +572,162 @@ class _StatChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 2. Progress overview card
+// 2. KPI grid — 4 analytics cards
+// ─────────────────────────────────────────────────────────────
+class _KpiGrid extends StatelessWidget {
+  const _KpiGrid({required this.detail, required this.animation});
+  final ChildDetailModel detail;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (ctx, _) {
+        final v = animation.value.clamp(0.0, 1.0);
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _KpiCard(
+                    icon: Icons.trending_up_rounded,
+                    iconColor: _kSecondary,
+                    iconBg: const Color(0xFFEFF6FF),
+                    value: '${detail.overallMastery.round()}%',
+                    label: 'مستوى الإتقان',
+                    animValue: v,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _KpiCard(
+                    icon: Icons.menu_book_rounded,
+                    iconColor: _kSuccess,
+                    iconBg: const Color(0xFFF0FDF4),
+                    value: '${detail.lessonsCompleted}',
+                    label: 'دروس مكتملة',
+                    animValue: v,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _KpiCard(
+                    icon: Icons.stars_rounded,
+                    iconColor: _kWarning,
+                    iconBg: const Color(0xFFFFFBEB),
+                    value: '${detail.totalPoints}',
+                    label: 'مجموع النقاط',
+                    animValue: v,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _KpiCard(
+                    icon: Icons.local_fire_department_rounded,
+                    iconColor: _kDanger,
+                    iconBg: const Color(0xFFFFF1F1),
+                    value: '${detail.currentStreak}',
+                    label: 'أيام متواصلة',
+                    animValue: v,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.value,
+    required this.label,
+    required this.animValue,
+  });
+  final IconData icon;
+  final Color iconColor, iconBg;
+  final String value, label;
+  final double animValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: animValue,
+      child: Transform.translate(
+        offset: Offset(0, 10 * (1 - animValue)),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _kBorder),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x06000000),
+                blurRadius: 12,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: _kText,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: _kTextSub,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3. Progress overview card
 // ─────────────────────────────────────────────────────────────
 class _ProgressOverviewCard extends StatelessWidget {
   const _ProgressOverviewCard({required this.detail, required this.animation});
@@ -524,19 +736,24 @@ class _ProgressOverviewCard extends StatelessWidget {
 
   int get _total => detail.effectiveTotalLessons;
   int get _done => detail.lessonsCompleted;
-  double get _completionRatio => _total > 0 ? _done / _total : 0;
+  double get _ratio => _total > 0 ? _done / _total : 0.0;
 
   @override
   Widget build(BuildContext context) {
-    return _Card(
+    return _ProfCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(emoji: '📊', label: 'نظرة عامة على التقدم'),
-          const SizedBox(height: 18),
+          const _SectionHeader(
+            icon: Icons.bar_chart_rounded,
+            iconColor: _kSecondary,
+            label: 'نظرة عامة على التقدم',
+          ),
+          const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Left: numbers + bar
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,99 +764,116 @@ class _ProgressOverviewCard extends StatelessWidget {
                           TextSpan(
                             text: '$_done',
                             style: const TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              color: _kPrimary,
+                              height: 1,
                             ),
                           ),
                           TextSpan(
                             text: ' / $_total',
                             style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textSecondary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: _kTextSub,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 4),
                     const Text(
                       'درس مكتمل',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: _kTextSub,
+                        fontWeight: FontWeight.w500,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    AnimatedBuilder(
+                      animation: animation,
+                      builder: (ctx, _) {
+                        final v = _ratio * animation.value;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'الإنجاز الكلي',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _kTextSub,
+                                  ),
+                                ),
+                                Text(
+                                  '${(v * 100).round()}%',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: _kPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: v,
+                                minHeight: 8,
+                                backgroundColor: const Color(0xFFE2E8F0),
+                                valueColor: const AlwaysStoppedAnimation(_kSecondary),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 20),
+              // Right: circular ring
               AnimatedBuilder(
                 animation: animation,
-                builder: (ctx, snap) => _CircularPercent(
-                  value: _completionRatio * animation.value,
-                  color: AppColors.primary,
-                  size: 82,
+                builder: (ctx, _) => _CircularRing(
+                  value: _ratio * animation.value,
+                  color: _kPrimary,
+                  size: 86,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Animated linear bar
-          AnimatedBuilder(
-            animation: animation,
-            builder: (ctx, snap) {
-              final v = _completionRatio * animation.value;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: LinearProgressIndicator(
-                      value: v,
-                      minHeight: 16,
-                      backgroundColor: const Color(0xFFF0EDE0),
-                      valueColor: const AlwaysStoppedAnimation(
-                        AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${(v * 100).round()}% اكتمل',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: _kBorder),
           const SizedBox(height: 14),
+          // Metrics row
           Row(
             children: [
-              _InfoChip(
-                emoji: '🎯',
-                label: 'إتقان',
+              _InlineMetric(
+                icon: Icons.auto_awesome_rounded,
+                iconColor: _kSecondary,
                 value: '${detail.overallMastery.round()}%',
-                color: AppColors.gold,
+                label: 'الإتقان',
               ),
-              const SizedBox(width: 10),
-              _InfoChip(
-                emoji: '⏳',
-                label: 'جارٍ',
+              _VDivider(),
+              _InlineMetric(
+                icon: Icons.hourglass_top_rounded,
+                iconColor: _kWarning,
                 value: '${detail.lessonsInProgress}',
-                color: AppColors.secondary,
+                label: 'جارٍ',
               ),
               if (detail.totalQuizzesTaken > 0) ...[
-                const SizedBox(width: 10),
-                _InfoChip(
-                  emoji: '📝',
-                  label: 'اختبار',
+                _VDivider(),
+                _InlineMetric(
+                  icon: Icons.quiz_rounded,
+                  iconColor: _kPurple,
                   value: '${detail.totalQuizzesTaken}',
-                  color: AppColors.purple,
+                  label: 'اختبار',
                 ),
               ],
             ],
@@ -650,12 +884,57 @@ class _ProgressOverviewCard extends StatelessWidget {
   }
 }
 
+class _InlineMetric extends StatelessWidget {
+  const _InlineMetric({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String value, label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: _kText,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: _kTextSub,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 38, color: _kBorder);
+}
+
 // ─────────────────────────────────────────────────────────────
-// 3. Last activity card
+// 4. Recent learning activity (timeline)
 // ─────────────────────────────────────────────────────────────
-class _LastActivityCard extends StatelessWidget {
-  const _LastActivityCard({required this.child, required this.detail});
-  final ChildSummaryModel child;
+class _RecentActivityCard extends StatelessWidget {
+  const _RecentActivityCard({required this.detail});
   final ChildDetailModel detail;
 
   @override
@@ -664,122 +943,181 @@ class _LastActivityCard extends StatelessWidget {
     final hasProgress =
         detail.lessonsCompleted > 0 || detail.lessonsInProgress > 0;
 
-    return _Card(
+    return _ProfCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(emoji: '⚡', label: 'آخر نشاط'),
-          const SizedBox(height: 14),
+          const _SectionHeader(
+            icon: Icons.timeline_rounded,
+            iconColor: _kSuccess,
+            label: 'نشاط التعلم الأخير',
+          ),
+          const SizedBox(height: 16),
           if (!hasProgress && !hasQuiz)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'لا يوجد نشاط بعد — شجّع طفلك على بدء أول درس! 🚀',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
+            _EmptyActivity()
+          else
+            _buildTimeline(hasQuiz),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeline(bool hasQuiz) {
+    final items = <_TimelineItem>[];
+
+    if (detail.lessonsCompleted > 0) {
+      items.add(_TimelineItem(
+        icon: Icons.check_circle_rounded,
+        iconColor: _kSuccess,
+        title: 'الدروس المكتملة',
+        subtitle:
+            '${detail.lessonsCompleted} درس من أصل ${detail.effectiveTotalLessons}',
+      ));
+    }
+    if (detail.lessonsInProgress > 0) {
+      items.add(_TimelineItem(
+        icon: Icons.play_circle_rounded,
+        iconColor: _kSecondary,
+        title: 'دروس جارٍ العمل عليها',
+        subtitle: '${detail.lessonsInProgress} درس في التقدم',
+      ));
+    }
+    if (hasQuiz) {
+      items.add(_TimelineItem(
+        icon: Icons.assignment_turned_in_rounded,
+        iconColor: _kPurple,
+        title: 'نتائج الاختبارات',
+        subtitle:
+            '${detail.averageQuizScore.toStringAsFixed(1)}% متوسط الدرجات (${detail.totalQuizzesTaken} اختبار)',
+      ));
+    }
+    // Always add mastery row
+    items.add(_TimelineItem(
+      icon: Icons.auto_awesome_rounded,
+      iconColor: _kWarning,
+      title: 'مستوى الإتقان العام',
+      subtitle: '${detail.overallMastery.toStringAsFixed(1)}%',
+    ));
+
+    return Column(
+      children: List.generate(items.length, (i) {
+        final item = items[i];
+        final isLast = i == items.length - 1;
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 36,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: item.iconColor.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(item.icon, color: item.iconColor, size: 17),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _kBorder,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            )
-          else ...[
-            if (detail.lessonsCompleted > 0)
-              _ActivityRow(
-                icon: '📚',
-                color: AppColors.secondary,
-                title: 'الدروس المكتملة',
-                subtitle:
-                    '${detail.lessonsCompleted} درس من أصل ${detail.effectiveTotalLessons}',
-              ),
-            if (detail.lessonsInProgress > 0) ...[
-              const SizedBox(height: 10),
-              _ActivityRow(
-                icon: '🔄',
-                color: AppColors.primary,
-                title: 'دروس جارٍ العمل عليها',
-                subtitle: '${detail.lessonsInProgress} درس في التقدم',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: isLast ? 0 : 14,
+                    top: 6,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _kText,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _kTextSub,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
-            if (hasQuiz) ...[
-              const SizedBox(height: 10),
-              _ActivityRow(
-                icon: '📝',
-                color: AppColors.purple,
-                title: 'آخر نتيجة اختبار',
-                subtitle:
-                    '${detail.averageQuizScore.toStringAsFixed(1)}% متوسط الدرجات (${detail.totalQuizzesTaken} اختبار)',
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _TimelineItem {
+  const _TimelineItem({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String title, subtitle;
+}
+
+class _EmptyActivity extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.info_outline_rounded, color: _kTextSub, size: 17),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'لا يوجد نشاط بعد — شجّع طفلك على بدء أول درس',
+              style: TextStyle(
+                fontSize: 13,
+                color: _kTextSub,
+                fontWeight: FontWeight.w500,
               ),
-            ],
-            const SizedBox(height: 10),
-            _ActivityRow(
-              icon: '🎯',
-              color: AppColors.gold,
-              title: 'مستوى الإتقان العام',
-              subtitle: '${detail.overallMastery.toStringAsFixed(1)}%',
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
-  final String icon, title, subtitle;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          alignment: Alignment.center,
-          child: Text(icon, style: const TextStyle(fontSize: 22)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────
-// 4. Subject progress section
+// 5. Subject progress section
 // ─────────────────────────────────────────────────────────────
 class _SubjectProgressSection extends StatelessWidget {
   const _SubjectProgressSection({
@@ -794,17 +1132,22 @@ class _SubjectProgressSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _SectionTitle(emoji: '📖', label: 'تقدم المواد الدراسية'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: _SectionHeader(
+            icon: Icons.auto_stories_rounded,
+            iconColor: _kPrimary,
+            label: 'تقدم المواد الدراسية',
+            standalone: true,
+          ),
         ),
         ...detail.subjectBreakdown.asMap().entries.map(
           (e) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 10),
             child: _SubjectCard(
               subject: e.value,
               animation: animation,
-              delay: e.key * 0.12,
+              delay: e.key * 0.10,
             ),
           ),
         ),
@@ -823,45 +1166,74 @@ class _SubjectCard extends StatelessWidget {
   final Animation<double> animation;
   final double delay;
 
+  static Color _color(String key) {
+    switch (key) {
+      case 'math':
+        return _kSecondary;
+      case 'reading':
+        return _kSuccess;
+      case 'science':
+        return _kWarning;
+      default:
+        return _kPurple;
+    }
+  }
+
+  static IconData _icon(String key) {
+    switch (key) {
+      case 'math':
+        return Icons.calculate_rounded;
+      case 'reading':
+        return Icons.auto_stories_rounded;
+      case 'science':
+        return Icons.science_rounded;
+      default:
+        return Icons.school_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final (bgColor, shadowColor) = SubjectColors.of(subject.key);
+    final color = _color(subject.key);
     final ratio = subject.totalLessons > 0
         ? subject.lessonsCompleted / subject.totalLessons
         : 0.0;
 
-    // Stagger animation using an interval
     final delayedAnim = CurvedAnimation(
       parent: animation,
-      curve: Interval(delay.clamp(0.0, 0.8), 1.0, curve: Curves.easeOutCubic),
+      curve: Interval(
+        delay.clamp(0.0, 0.8),
+        1.0,
+        curve: Curves.easeOutCubic,
+      ),
     );
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        color: _kCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBorder),
+        boxShadow: const [
           BoxShadow(
-            color: shadowColor.withValues(alpha: 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
           ),
         ],
-        border: Border.all(color: bgColor.withValues(alpha: 0.25), width: 1.5),
       ),
       child: Row(
         children: [
           // Subject icon
           Container(
-            width: 54,
-            height: 54,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: bgColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.center,
-            child: Text(subject.emoji, style: const TextStyle(fontSize: 28)),
+            child: Icon(_icon(subject.key), color: color, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -875,33 +1247,37 @@ class _SubjectCard extends StatelessWidget {
                       child: Text(
                         subject.subjectName,
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _kText,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      '${subject.lessonsCompleted}/${subject.totalLessons} درس',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: bgColor,
+                    const SizedBox(width: 8),
+                    AnimatedBuilder(
+                      animation: delayedAnim,
+                      builder: (ctx, _) => Text(
+                        '${(ratio * delayedAnim.value * 100).round()}%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 AnimatedBuilder(
                   animation: delayedAnim,
-                  builder: (ctx, snap) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                  builder: (ctx, _) => ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
                     child: LinearProgressIndicator(
                       value: ratio * delayedAnim.value,
-                      minHeight: 12,
-                      backgroundColor: bgColor.withValues(alpha: 0.14),
-                      valueColor: AlwaysStoppedAnimation(bgColor),
+                      minHeight: 6,
+                      backgroundColor: const Color(0xFFE2E8F0),
+                      valueColor: AlwaysStoppedAnimation(color),
                     ),
                   ),
                 ),
@@ -909,38 +1285,31 @@ class _SubjectCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text(
+                      '${subject.lessonsCompleted}/${subject.totalLessons} درس',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _kTextSub,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     Row(
                       children: [
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 11,
+                          color: _kTextSub,
+                        ),
+                        const SizedBox(width: 3),
                         Text(
-                          '🎯 إتقان: ${subject.averageMastery.round()}%',
+                          'إتقان: ${subject.averageMastery.round()}%',
                           style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: _kTextSub,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                    ),
-                    AnimatedBuilder(
-                      animation: delayedAnim,
-                      builder: (ctx, snap) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bgColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${(ratio * delayedAnim.value * 100).round()}%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: bgColor,
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -954,142 +1323,127 @@ class _SubjectCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 5. Achievements card
+// 6. Milestones & Achievements card
 // ─────────────────────────────────────────────────────────────
-class _AchievementsCard extends StatelessWidget {
-  const _AchievementsCard({required this.child, required this.detail});
-  final ChildSummaryModel child;
+class _MilestonesCard extends StatelessWidget {
+  const _MilestonesCard({required this.detail});
   final ChildDetailModel detail;
 
-  List<_BadgeData> get _badges {
-    final badges = <_BadgeData>[];
+  List<_MilestoneData> get _milestones {
+    final list = <_MilestoneData>[];
     if (detail.lessonsCompleted >= 1) {
-      badges.add(const _BadgeData('🌟', 'متعلم نشيط'));
+      list.add(const _MilestoneData(
+        icon: Icons.emoji_events_rounded,
+        color: _kWarning,
+        label: 'متعلم نشيط',
+        desc: 'أكمل أول درس',
+      ));
     }
     if (detail.lessonsCompleted >= 5) {
-      badges.add(const _BadgeData('📚', 'قارئ ماهر'));
+      list.add(const _MilestoneData(
+        icon: Icons.local_library_rounded,
+        color: _kSecondary,
+        label: 'قارئ ماهر',
+        desc: 'أكمل 5 دروس',
+      ));
     }
     if (detail.currentStreak >= 3) {
-      badges.add(const _BadgeData('🔥', 'مثابر'));
+      list.add(const _MilestoneData(
+        icon: Icons.local_fire_department_rounded,
+        color: _kDanger,
+        label: 'مثابر',
+        desc: '3 أيام متواصلة',
+      ));
     }
     if (detail.overallMastery >= 70) {
-      badges.add(const _BadgeData('🏅', 'متميز'));
+      list.add(const _MilestoneData(
+        icon: Icons.military_tech_rounded,
+        color: _kSuccess,
+        label: 'متميز',
+        desc: 'إتقان 70%+',
+      ));
     }
     if (detail.totalQuizzesTaken >= 5) {
-      badges.add(const _BadgeData('🎯', 'محترف'));
+      list.add(const _MilestoneData(
+        icon: Icons.workspace_premium_rounded,
+        color: _kPurple,
+        label: 'محترف',
+        desc: 'أكمل 5 اختبارات',
+      ));
     }
-    return badges;
+    return list;
   }
 
   @override
   Widget build(BuildContext context) {
-    final badges = _badges;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFC81E), Color(0xFFFFD96A)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.gold.withValues(alpha: 0.42),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    final milestones = _milestones;
+    return _ProfCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Text('🏆', style: TextStyle(fontSize: 24)),
-              SizedBox(width: 8),
-              Text(
-                'الإنجازات',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF6B4200),
+          const _SectionHeader(
+            icon: Icons.workspace_premium_rounded,
+            iconColor: _kWarning,
+            label: 'الإنجازات والشارات',
+          ),
+          const SizedBox(height: 16),
+          // Stats summary strip
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kBorder),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _AchievStat(
+                  icon: Icons.stars_rounded,
+                  iconColor: _kWarning,
+                  value: '${detail.totalPoints}',
+                  label: 'نقطة',
                 ),
-              ),
-            ],
+                Container(width: 1, height: 34, color: _kBorder),
+                _AchievStat(
+                  icon: Icons.check_circle_outline_rounded,
+                  iconColor: _kSuccess,
+                  value: '${detail.lessonsCompleted}',
+                  label: 'درس',
+                ),
+                Container(width: 1, height: 34, color: _kBorder),
+                _AchievStat(
+                  icon: Icons.local_fire_department_rounded,
+                  iconColor: _kDanger,
+                  value: '${detail.currentStreak}',
+                  label: 'يوم',
+                ),
+                Container(width: 1, height: 34, color: _kBorder),
+                _AchievStat(
+                  icon: Icons.trending_up_rounded,
+                  iconColor: _kSecondary,
+                  value: '${detail.overallMastery.round()}%',
+                  label: 'إتقان',
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _AchievItem(
-                emoji: '⭐',
-                value: '${detail.totalPoints}',
-                label: 'نجمة',
-              ),
-              _AchievItem(
-                emoji: '✅',
-                value: '${detail.lessonsCompleted}',
-                label: 'درس',
-              ),
-              _AchievItem(
-                emoji: '🔥',
-                value: '${detail.currentStreak}',
-                label: 'يوم',
-              ),
-              _AchievItem(
-                emoji: '🎯',
-                value: '${detail.overallMastery.round()}%',
-                label: 'إتقان',
-              ),
-            ],
-          ),
-          if (badges.isNotEmpty) ...[
+          if (milestones.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Container(height: 1, color: const Color(0x336B4200)),
-            const SizedBox(height: 12),
             const Text(
-              'الشارات المكتسبة 🎖',
+              'الشارات المكتسبة',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF6B4200),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _kTextSub,
+                letterSpacing: 0.3,
               ),
             ),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: badges
-                  .map(
-                    (b) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white38,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(b.emoji, style: const TextStyle(fontSize: 16)),
-                          const SizedBox(width: 5),
-                          Text(
-                            b.label,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF6B4200),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
+              children: milestones.map((m) => _BadgeChip(data: m)).toList(),
             ),
           ],
         ],
@@ -1098,43 +1452,105 @@ class _AchievementsCard extends StatelessWidget {
   }
 }
 
-class _AchievItem extends StatelessWidget {
-  const _AchievItem({
-    required this.emoji,
+class _MilestoneData {
+  const _MilestoneData({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.desc,
+  });
+  final IconData icon;
+  final Color color;
+  final String label, desc;
+}
+
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({required this.data});
+  final _MilestoneData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: data.color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: data.color.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: data.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            alignment: Alignment.center,
+            child: Icon(data.icon, color: data.color, size: 14),
+          ),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: data.color,
+                ),
+              ),
+              Text(
+                data.desc,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: _kTextSub,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievStat extends StatelessWidget {
+  const _AchievStat({
+    required this.icon,
+    required this.iconColor,
     required this.value,
     required this.label,
   });
-  final String emoji, value, label;
+  final IconData icon;
+  final Color iconColor;
+  final String value, label;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 58,
-          height: 58,
-          decoration: const BoxDecoration(
-            color: Colors.white38,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(emoji, style: const TextStyle(fontSize: 26)),
-        ),
-        const SizedBox(height: 5),
+        Icon(icon, color: iconColor, size: 19),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF6B4200),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: _kText,
           ),
         ),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF9A6A10),
+            fontSize: 10,
+            color: _kTextSub,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -1143,10 +1559,10 @@ class _AchievItem extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Shared small widgets
+// Shared professional primitives
 // ─────────────────────────────────────────────────────────────
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
+class _ProfCard extends StatelessWidget {
+  const _ProfCard({required this.child});
   final Widget child;
 
   @override
@@ -1155,13 +1571,14 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 16,
-            offset: Offset(0, 4),
+            color: Color(0x07000000),
+            blurRadius: 14,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -1170,84 +1587,69 @@ class _Card extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.emoji, required this.label});
-  final String emoji, label;
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    this.standalone = false,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final bool standalone;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final content = Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF3E0),
-            borderRadius: BorderRadius.circular(12),
+            color: iconColor.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(emoji, style: const TextStyle(fontSize: 18)),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 16),
         ),
         const SizedBox(width: 10),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: _kText,
+            letterSpacing: 0.1,
           ),
         ),
       ],
     );
-  }
-}
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.emoji,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String emoji, label, value;
-  final Color color;
+    if (!standalone) return content;
 
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 3),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+    // Standalone: wrap in a card-like container for section headings
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x05000000),
+            blurRadius: 8,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
+      child: content,
     );
   }
 }
 
-class _CircularPercent extends StatelessWidget {
-  const _CircularPercent({
+class _CircularRing extends StatelessWidget {
+  const _CircularRing({
     required this.value,
     required this.color,
     required this.size,
@@ -1268,22 +1670,91 @@ class _CircularPercent extends StatelessWidget {
           SizedBox.expand(
             child: CircularProgressIndicator(
               value: value,
-              strokeWidth: 8,
-              backgroundColor: const Color(0xFFF0EDE0),
+              strokeWidth: 7,
+              backgroundColor: const Color(0xFFE2E8F0),
               valueColor: AlwaysStoppedAnimation(color),
               strokeCap: StrokeCap.round,
             ),
           ),
-          Text(
-            '$pct%',
-            style: TextStyle(
-              fontSize: size * 0.21,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$pct%',
+                style: TextStyle(
+                  fontSize: size * 0.18,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              Text(
+                'مكتمل',
+                style: TextStyle(
+                  fontSize: size * 0.11,
+                  fontWeight: FontWeight.w500,
+                  color: _kTextSub,
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SmallRing extends StatelessWidget {
+  const _SmallRing({
+    required this.value,
+    required this.color,
+    required this.size,
+    required this.label,
+  });
+  final double value;
+  final Color color;
+  final double size;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox.expand(
+                child: CircularProgressIndicator(
+                  value: value.clamp(0.0, 1.0),
+                  strokeWidth: 4.5,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  valueColor: AlwaysStoppedAnimation(color),
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Text(
+                '${(value * 100).round()}%',
+                style: TextStyle(
+                  fontSize: size * 0.195,
+                  fontWeight: FontWeight.w800,
+                  color: _kText,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: _kTextSub,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1296,21 +1767,31 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(AppColors.primary),
-            strokeWidth: 4,
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: _kSecondary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(_kSecondary),
+                strokeWidth: 3,
+              ),
+            ),
           ),
-          SizedBox(height: 20),
-          Text(
-            'جارٍ تحميل بيانات طفلك...',
+          const SizedBox(height: 16),
+          const Text(
+            'جارٍ تحميل بيانات الطالب...',
             style: TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: _kTextSub,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1332,14 +1813,27 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('😕', style: TextStyle(fontSize: 64)),
-            const SizedBox(height: 16),
+            Container(
+              width: 68,
+              height: 68,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1F1),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.cloud_off_rounded,
+                color: _kDanger,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 20),
             const Text(
               'تعذّر تحميل البيانات',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: _kText,
               ),
             ),
             const SizedBox(height: 8),
@@ -1347,7 +1841,8 @@ class _ErrorState extends StatelessWidget {
               message,
               style: const TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: _kTextSub,
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
               maxLines: 4,
@@ -1356,19 +1851,19 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, size: 17),
               label: const Text(
                 'إعادة المحاولة',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: _kSecondary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
+                  horizontal: 24,
+                  vertical: 12,
                 ),
               ),
             ),
@@ -1384,29 +1879,43 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('👶', style: TextStyle(fontSize: 72)),
-            SizedBox(height: 16),
-            Text(
-              'لا يوجد أطفال بعد',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textPrimary,
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: _kSecondary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.person_add_alt_1_rounded,
+                color: _kSecondary,
+                size: 36,
               ),
             ),
-            SizedBox(height: 8),
-            Text(
-              'أضف طفلك من شاشة الملفات الشخصية\nليبدأ رحلة التعلم! 🚀',
+            const SizedBox(height: 20),
+            const Text(
+              'لا يوجد طلاب بعد',
               style: TextStyle(
-                fontSize: 15,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: _kText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'أضف طفلك من شاشة الملفات الشخصية\nليبدأ رحلة التعلم',
+              style: TextStyle(
+                fontSize: 14,
+                color: _kTextSub,
+                fontWeight: FontWeight.w500,
+                height: 1.6,
               ),
               textAlign: TextAlign.center,
             ),
@@ -1415,13 +1924,4 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Internal data holder
-// ─────────────────────────────────────────────────────────────
-class _BadgeData {
-  const _BadgeData(this.emoji, this.label);
-  final String emoji;
-  final String label;
 }

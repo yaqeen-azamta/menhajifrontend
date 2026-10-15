@@ -67,6 +67,20 @@ class _VoiceAnswerQuestionState extends State<VoiceAnswerQuestion> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (q.imageUrl != null && q.imageUrl!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          q.imageUrl!,
+                          height: 180,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+
                   const Text(
                     'SAY THIS',
                     style: TextStyle(
@@ -76,7 +90,9 @@ class _VoiceAnswerQuestionState extends State<VoiceAnswerQuestion> {
                       letterSpacing: 1.2,
                     ),
                   ),
+
                   const SizedBox(height: 6),
+
                   Text(
                     q.expectedText!,
                     textDirection: _hasArabic(q.expectedText!)

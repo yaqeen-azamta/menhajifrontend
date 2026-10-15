@@ -29,8 +29,19 @@ import '../l10n/app_strings.dart';
 import '../models/adaptive_quiz_models.dart';
 import '../services/adaptive_quiz_service.dart';
 import '../services/api_client.dart';
-import '../theme/theme.dart';
-import '../widgets/fat_button.dart';
+import '../widgets/tts_speaker_button.dart';
+
+// ── Premium color palette (scoped to this file) ───────────────────────────────
+const _cPD = Color(0xFF111844); // primary dark — top bar, submit button
+const _cP = Color(0xFF4B5694); // primary — progress fill, selection accent
+const _cS = Color(0xFF7288AE); // secondary — hints, secondary actions
+const _cBg = Color(0xFFF8FAFC); // page background
+const _cT = Color(0xFF0F172A); // text primary
+const _cTS = Color(0xFF64748B); // text secondary
+const _cOk = Color(0xFF16A34A); // success — صح / correct
+const _cErr = Color(0xFFDC2626); // error — خطأ / wrong
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key, required this.lessonId});
@@ -108,8 +119,16 @@ class _QuizScreenState extends State<QuizScreen> {
     debugPrint('[QuizScreen] activeStudentId=$_studentId lessonId=$lessonId');
 
     try {
-      final payload = await AdaptiveQuizService.instance
-          .generateOrResume(lessonId, studentId: _studentId);
+      final payload = await AdaptiveQuizService.instance.generateOrResume(
+        lessonId,
+        studentId: _studentId,
+      );
+
+      for (final q in payload.questions) {
+        debugPrint(
+          'QUESTION => index=${q.questionIndex} text=${q.questionText}',
+        );
+      }
 
       if (payload.questions.isEmpty) {
         setState(() {
@@ -146,11 +165,8 @@ class _QuizScreenState extends State<QuizScreen> {
   int get _perQHintsRemaining => 3 - _hintLevelFor(_idx);
   int get _totalHintsRemaining => 10 - _totalHintsUsed;
 
-  // Button is active only when both quotas have room and no fetch is in-flight.
   bool get _hintAvailable =>
-      _perQHintsRemaining > 0 &&
-      _totalHintsRemaining > 0 &&
-      !_loadingHint;
+      _perQHintsRemaining > 0 && _totalHintsRemaining > 0 && !_loadingHint;
 
   Future<void> _fetchHint() async {
     if (!_hintAvailable || _payload == null) return;
@@ -179,21 +195,16 @@ class _QuizScreenState extends State<QuizScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
 
-      // 429 means a limit was hit — exhaust the relevant quota so the button
-      // is disabled without requiring a second failing request.
       if (e.statusCode == 429) {
         setState(() {
-          _hintLevels[qIdx] = 3; // per-question exhausted
-          _totalHintsUsed = 10;  // also treat as quiz-level exhausted
+          _hintLevels[qIdx] = 3;
+          _totalHintsUsed = 10;
         });
       }
 
-      final msg =
-          e.statusCode == 429
-              ? (e.message.isNotEmpty
-                  ? e.message
-                  : AppStrings.adaptiveHintLimit429)
-              : AppStrings.adaptiveHintFailed;
+      final msg = e.statusCode == 429
+          ? (e.message.isNotEmpty ? e.message : AppStrings.adaptiveHintLimit429)
+          : AppStrings.adaptiveHintFailed;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -259,7 +270,6 @@ class _QuizScreenState extends State<QuizScreen> {
     final nextIdx = _idx + 1;
     final q = _payload!.questions[nextIdx];
 
-    // Pre-fill the write controller if the next question has a cached answer.
     if (q.type == 'SHORT_ANSWER') {
       _writeCtrl.text = _answers[q.questionIndex] ?? '';
     } else {
@@ -277,9 +287,9 @@ class _QuizScreenState extends State<QuizScreen> {
     final payload = _payload!;
     final total = payload.questions.length;
 
-    // Validate ≥ 50% answered.
-    final answeredCount =
-        _answers.values.where((a) => a.trim().isNotEmpty).length;
+    final answeredCount = _answers.values
+        .where((a) => a.trim().isNotEmpty)
+        .length;
     if (answeredCount * 2 < total) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -288,7 +298,7 @@ class _QuizScreenState extends State<QuizScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          backgroundColor: const Color(0xFFC62828),
+          backgroundColor: _cErr,
         ),
       );
       return;
@@ -297,7 +307,6 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() => _submitting = true);
 
     try {
-      // Build answer list — include all questions, empty string for skipped.
       final answers = payload.questions.map((q) {
         return AdaptiveAnswer(
           questionIndex: q.questionIndex,
@@ -328,7 +337,7 @@ class _QuizScreenState extends State<QuizScreen> {
           SnackBar(
             content: Text(_apiErrorMsg(e)),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFC62828),
+            backgroundColor: _cErr,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -378,10 +387,7 @@ class _QuizScreenState extends State<QuizScreen> {
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
               AppStrings.quizQuit,
-              style: TextStyle(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: _cErr, fontWeight: FontWeight.w900),
             ),
           ),
         ],
@@ -413,15 +419,15 @@ class _QuizScreenState extends State<QuizScreen> {
     final total = payload.questions.length;
     final isLast = _idx == total - 1;
     final progress = (_idx + 1) / total;
-    final answeredCount =
-        _answers.values.where((a) => a.trim().isNotEmpty).length;
+    final answeredCount = _answers.values
+        .where((a) => a.trim().isNotEmpty)
+        .length;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: _cBg,
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar: close + progress bar + question counter
             _TopBar(
               index: _idx,
               total: total,
@@ -430,25 +436,15 @@ class _QuizScreenState extends State<QuizScreen> {
               onClose: _showCloseDialog,
             ),
 
-            // Scrollable question area
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Question text
-                    Text(
-                      q.questionText,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        height: 1.55,
-                        color: AppColors.textPrimary,
-                      ),
-                      textDirection: TextDirection.rtl,
-                    ),
-                    const SizedBox(height: 14),
+                    // Question card with TTS
+                    _QuestionCard(questionText: q.questionText),
+                    const SizedBox(height: 16),
 
                     // Hint row
                     _HintRow(
@@ -458,6 +454,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       totalRemaining: _totalHintsRemaining,
                       cachedHint: _hintTexts[q.questionIndex],
                       onTap: _fetchHint,
+                      onStronger: _hintAvailable ? _fetchHint : null,
                     ),
                     const SizedBox(height: 24),
 
@@ -474,7 +471,6 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
 
-            // Bottom action bar
             _BottomBar(
               isLast: isLast,
               submitting: _submitting,
@@ -509,59 +505,119 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
         children: [
-          // Close button
-          GestureDetector(
-            onTap: onClose,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE5E5E5), width: 2),
+          Row(
+            children: [
+              // Close button
+              GestureDetector(
+                onTap: onClose,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _cBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFE2E8F0),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(Icons.close_rounded, size: 20, color: _cTS),
+                ),
               ),
-              child: const Icon(
-                Icons.close_rounded,
-                size: 22,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-          // Progress bar
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 13,
-                backgroundColor: const Color(0xFFE5E5E5),
-                color: AppColors.primary,
+              // Question counter badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _cP.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'السؤال ${index + 1} من $total',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _cP,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
 
-          // "answered / total" counter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '$answeredCount/$total',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
+              const Spacer(),
+
+              // Answered count badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _cOk.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 14,
+                      color: _cOk,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$answeredCount/$total',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _cOk,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Gradient progress bar
+          LayoutBuilder(
+            builder: (_, constraints) {
+              return Stack(
+                children: [
+                  Container(
+                    width: constraints.maxWidth,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 450),
+                    curve: Curves.easeOut,
+                    width: constraints.maxWidth * progress,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_cPD, _cP],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -570,7 +626,77 @@ class _TopBar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// HINT ROW — button + inline remaining count
+// QUESTION CARD
+// ════════════════════════════════════════════════════════════════════════════
+
+class _QuestionCard extends StatelessWidget {
+  const _QuestionCard({required this.questionText});
+
+  final String questionText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: _cP.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  questionText,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.6,
+                    color: _cT,
+                  ),
+                  textDirection: TextDirection.rtl,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: _cBg,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TtsSpeakerButton(
+                  text: questionText,
+                  audioType: 'explanation',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// HINT ROW — button + inline remaining count + cached hint preview
 // ════════════════════════════════════════════════════════════════════════════
 
 class _HintRow extends StatelessWidget {
@@ -581,6 +707,7 @@ class _HintRow extends StatelessWidget {
     required this.totalRemaining,
     required this.onTap,
     this.cachedHint,
+    this.onStronger,
   });
 
   final bool loading;
@@ -589,6 +716,7 @@ class _HintRow extends StatelessWidget {
   final int totalRemaining;
   final String? cachedHint;
   final VoidCallback onTap;
+  final VoidCallback? onStronger;
 
   @override
   Widget build(BuildContext context) {
@@ -601,14 +729,16 @@ class _HintRow extends StatelessWidget {
           onTap: available ? onTap : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: disabled
-                  ? const Color(0xFFF0F0F0)
-                  : AppColors.gold.withValues(alpha: 0.14),
+                  ? const Color(0xFFF1F5F9)
+                  : _cS.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: disabled ? const Color(0xFFDDDDDD) : AppColors.gold,
+                color: disabled
+                    ? const Color(0xFFCBD5E1)
+                    : _cS.withValues(alpha: 0.50),
                 width: 1.5,
               ),
             ),
@@ -621,13 +751,16 @@ class _HintRow extends StatelessWidget {
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.gold,
+                      color: _cS,
                     ),
                   )
                 else
-                  Text(
-                    disabled ? '🔒' : '💡',
-                    style: const TextStyle(fontSize: 14),
+                  Icon(
+                    disabled
+                        ? Icons.lock_outline_rounded
+                        : Icons.lightbulb_outline_rounded,
+                    size: 15,
+                    color: disabled ? _cTS : _cS,
                   ),
                 const SizedBox(width: 6),
                 Text(
@@ -636,8 +769,8 @@ class _HintRow extends StatelessWidget {
                       : AppStrings.adaptiveHintButton,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: disabled ? AppColors.textSecondary : AppColors.flame,
+                    fontWeight: FontWeight.w700,
+                    color: disabled ? _cTS : _cS,
                   ),
                 ),
               ],
@@ -651,13 +784,13 @@ class _HintRow extends StatelessWidget {
             AppStrings.adaptiveHintRemainingPerQ(perQRemaining),
             style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+              color: _cTS,
             ),
           ),
         ],
 
-        // Show previously fetched hint preview if available
+        // Cached hint preview button
         if (cachedHint != null && cachedHint!.isNotEmpty) ...[
           const Spacer(),
           GestureDetector(
@@ -665,29 +798,42 @@ class _HintRow extends StatelessWidget {
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
-              builder: (_) => _HintBottomSheet(
+              builder: (sheetCtx) => _HintBottomSheet(
                 hint: cachedHint!,
                 perQRemaining: perQRemaining,
                 totalRemaining: totalRemaining,
-                onStronger: available ? onTap : null,
+                onStronger: onStronger != null
+                    ? () {
+                        Navigator.pop(sheetCtx);
+                        onStronger!();
+                      }
+                    : null,
               ),
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.10),
+                color: _cS.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppColors.secondary.withValues(alpha: 0.30),
+                  color: _cS.withValues(alpha: 0.25),
+                  width: 1.5,
                 ),
               ),
-              child: const Text(
-                'عرض التلميح 👁',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.secondary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.visibility_outlined, size: 13, color: _cS),
+                  SizedBox(width: 5),
+                  Text(
+                    'عرض التلميح',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _cS,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -727,33 +873,47 @@ class _HintBottomSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Drag handle
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(2),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 20),
 
-            // Header
+            // Header row
             Row(
               children: [
-                const Text('💡', style: TextStyle(fontSize: 26)),
-                const SizedBox(width: 10),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _cS.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 20,
+                    color: _cS,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 const Text(
                   AppStrings.adaptiveHintTitle,
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _cT,
                   ),
                 ),
                 const Spacer(),
-                // Remaining indicators
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -761,61 +921,107 @@ class _HintBottomSheet extends StatelessWidget {
                       AppStrings.adaptiveHintRemainingPerQ(perQRemaining),
                       style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        color: _cTS,
                       ),
                     ),
                     Text(
                       AppStrings.adaptiveHintRemainingTotal(totalRemaining),
                       style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        color: _cTS,
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // Hint text card
+            // Hint content card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE8DCC8), width: 2),
+                color: _cBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
               ),
-              child: Text(
-                hint,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  height: 1.6,
-                  color: AppColors.textPrimary,
-                ),
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    hint,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      height: 1.7,
+                      color: _cT,
+                    ),
+                    textAlign: TextAlign.right,
+                    textDirection: TextDirection.rtl,
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TtsSpeakerButton(text: hint, audioType: 'hint'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // "Stronger hint" action
+            // Stronger hint button
             if (moreAvailable) ...[
-              FatButton(
-                label: AppStrings.adaptiveHintStronger,
-                color: FatColor.gold,
-                onPressed: onStronger,
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: onStronger,
+                  icon: const Icon(
+                    Icons.lightbulb_rounded,
+                    size: 18,
+                    color: _cS,
+                  ),
+                  label: const Text(
+                    AppStrings.adaptiveHintStronger,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: _cS,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: _cS, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
             ],
 
-            FatButton(
-              label: AppStrings.adaptiveHintClose,
-              color: FatColor.secondary,
-              onPressed: () => Navigator.pop(context),
+            // Close button
+            SizedBox(
+              height: 50,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  AppStrings.adaptiveHintClose,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _cTS,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -869,7 +1075,7 @@ class _QuestionInput extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// MCQ — vertical card list with animated radio circle
+// MCQ — vertical card list with animated selection
 // ────────────────────────────────────────────────────────────────────────────
 
 class _McqInput extends StatelessWidget {
@@ -889,58 +1095,49 @@ class _McqInput extends StatelessWidget {
       children: options.map((opt) {
         final sel = selected == opt;
         return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.only(bottom: 12),
           child: GestureDetector(
             onTap: () => onSelect(opt),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               decoration: BoxDecoration(
-                color:
-                    sel ? AppColors.primary.withValues(alpha: 0.09) : Colors.white,
-                borderRadius: BorderRadius.circular(22),
+                color: sel ? _cP.withValues(alpha: 0.07) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: sel ? AppColors.primary : const Color(0xFFE5E5E5),
-                  width: sel ? 2.5 : 2.0,
+                  color: sel ? _cP : const Color(0xFFE2E8F0),
+                  width: sel ? 2.0 : 1.5,
                 ),
-                boxShadow: sel
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.20),
-                          blurRadius: 16,
-                          offset: const Offset(0, 5),
-                        ),
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                boxShadow: [
+                  BoxShadow(
+                    color: sel
+                        ? _cP.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.03),
+                    blurRadius: sel ? 14 : 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  // Radio indicator
+                  // Selection indicator
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 26,
-                    height: 26,
+                    duration: const Duration(milliseconds: 180),
+                    width: 24,
+                    height: 24,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: sel ? AppColors.primary : Colors.transparent,
+                      color: sel ? _cP : Colors.transparent,
                       border: Border.all(
-                        color: sel
-                            ? AppColors.primary
-                            : const Color(0xFFCCCCCC),
-                        width: 2.5,
+                        color: sel ? _cP : const Color(0xFFCBD5E1),
+                        width: 2.0,
                       ),
                     ),
                     child: sel
                         ? const Icon(
                             Icons.check_rounded,
                             color: Colors.white,
-                            size: 16,
+                            size: 14,
                           )
                         : null,
                   ),
@@ -949,9 +1146,9 @@ class _McqInput extends StatelessWidget {
                     child: Text(
                       opt,
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: sel ? AppColors.primary : AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: sel ? _cP : _cT,
                       ),
                       textDirection: TextDirection.rtl,
                     ),
@@ -967,7 +1164,7 @@ class _McqInput extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// TRUE / FALSE — two large horizontal buttons
+// TRUE / FALSE — two large outlined cards
 // ────────────────────────────────────────────────────────────────────────────
 
 class _TrueFalseInput extends StatelessWidget {
@@ -983,14 +1180,16 @@ class _TrueFalseInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use backend options if provided, otherwise fall back to Arabic defaults.
     final choices = options.isNotEmpty ? options : ['صح', 'خطأ'];
 
     return Row(
       children: choices.map((choice) {
         final sel = selected == choice;
         final isFirst = choice == choices.first;
-        final activeColor = isFirst ? AppColors.secondary : AppColors.danger;
+        final activeColor = isFirst ? _cOk : _cErr;
+        final icon = isFirst
+            ? Icons.check_circle_outline_rounded
+            : Icons.cancel_outlined;
 
         return Expanded(
           child: Padding(
@@ -1001,52 +1200,43 @@ class _TrueFalseInput extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onSelect(choice),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: 80,
+                duration: const Duration(milliseconds: 180),
+                height: 90,
                 decoration: BoxDecoration(
                   color: sel
-                      ? activeColor.withValues(alpha: 0.12)
+                      ? activeColor.withValues(alpha: 0.08)
                       : Colors.white,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: sel ? activeColor : const Color(0xFFE5E5E5),
-                    width: sel ? 2.5 : 2.0,
+                    color: sel ? activeColor : const Color(0xFFE2E8F0),
+                    width: sel ? 2.0 : 1.5,
                   ),
-                  boxShadow: sel
-                      ? [
-                          BoxShadow(
-                            color: activeColor.withValues(alpha: 0.25),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: sel
+                          ? activeColor.withValues(alpha: 0.14)
+                          : Colors.black.withValues(alpha: 0.03),
+                      blurRadius: sel ? 14 : 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      isFirst ? '✓' : '✗',
-                      style: TextStyle(
-                        fontSize: 22,
-                        color: sel ? activeColor : AppColors.textSecondary,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Icon(
+                      icon,
+                      size: 26,
+                      color: sel ? activeColor : const Color(0xFFCBD5E1),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       choice,
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: sel ? activeColor : AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: sel ? activeColor : _cT,
                       ),
                     ),
                   ],
@@ -1061,14 +1251,11 @@ class _TrueFalseInput extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// SHORT ANSWER — styled RTL text field
+// SHORT ANSWER — premium RTL text field
 // ────────────────────────────────────────────────────────────────────────────
 
 class _ShortAnswerInput extends StatelessWidget {
-  const _ShortAnswerInput({
-    required this.controller,
-    required this.onChanged,
-  });
+  const _ShortAnswerInput({required this.controller, required this.onChanged});
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
@@ -1079,26 +1266,30 @@ class _ShortAnswerInput extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       textDirection: TextDirection.rtl,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-      maxLines: 3,
-      minLines: 1,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        color: _cT,
+      ),
+      maxLines: 4,
+      minLines: 2,
       decoration: InputDecoration(
         hintText: AppStrings.questionWriteHint,
         hintStyle: const TextStyle(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.w600,
+          color: _cTS,
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
         ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.all(20),
+        contentPadding: const EdgeInsets.all(18),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide:
-              const BorderSide(color: AppColors.secondary, width: 2.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: _cP, width: 2.0),
         ),
       ),
     );
@@ -1125,53 +1316,75 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 14,
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 16,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: submitting
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+          ? const SizedBox(
+              height: 56,
+              child: Center(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 3,
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: _cP,
+                        strokeWidth: 2.5,
+                      ),
                     ),
                     SizedBox(width: 14),
                     Text(
                       AppStrings.adaptiveQuizSubmitting,
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        color: _cTS,
+                        fontSize: 15,
                       ),
                     ),
                   ],
                 ),
               ),
             )
-          : FatButton(
-              label: isLast ? AppStrings.adaptiveResultRetry.isEmpty
-                  ? 'إرسال الإجابات ✓'
-                  : 'إرسال الإجابات ✓'
-              : AppStrings.continueBtn,
-              onPressed: isLast ? onSubmit : onNext,
+          : SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: isLast ? onSubmit : onNext,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _cPD,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  isLast ? 'إرسال الإجابات' : AppStrings.continueBtn,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
             ),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// LOADING / ERROR STATE WIDGETS
+// LOADING STATE
 // ════════════════════════════════════════════════════════════════════════════
 
 class _LoadingState extends StatelessWidget {
@@ -1180,16 +1393,26 @@ class _LoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: _cBg,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            SizedBox(height: 14),
+            Icon(Icons.school_outlined, size: 56, color: _cP),
+            SizedBox(height: 24),
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(color: _cP, strokeWidth: 3),
+            ),
+            SizedBox(height: 18),
             Text(
               AppStrings.adaptiveQuizLoading,
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _cTS,
+                fontSize: 15,
+              ),
             ),
           ],
         ),
@@ -1197,6 +1420,10 @@ class _LoadingState extends StatelessWidget {
     );
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ERROR STATE
+// ════════════════════════════════════════════════════════════════════════════
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({
@@ -1212,30 +1439,78 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: _cBg,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(36),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('😕', style: TextStyle(fontSize: 56)),
-              const SizedBox(height: 16),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: _cErr.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  size: 36,
+                  color: _cErr,
+                ),
+              ),
+              const SizedBox(height: 20),
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
+                  color: _cTS,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  height: 1.6,
                 ),
               ),
-              const SizedBox(height: 24),
-              FatButton(label: AppStrings.retry, onPressed: onRetry),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: onRetry,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _cPD,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    AppStrings.retry,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                ),
+              ),
               const SizedBox(height: 12),
-              FatButton(
-                label: AppStrings.goBack,
-                color: FatColor.secondary,
-                onPressed: onBack,
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: onBack,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _cTS,
+                    side: const BorderSide(
+                      color: Color(0xFFE2E8F0),
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    AppStrings.goBack,
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ),
               ),
             ],
           ),

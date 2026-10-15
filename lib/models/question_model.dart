@@ -11,12 +11,18 @@ enum QuestionType {
   fillBlank,
   voiceAnswer,
   reading,
+  story,
   imageMatch,
   dragDrop,
   reorderWords,
   listenAndChoose,
   writeAnswer,
   imageMcq,
+  countGroup,
+  matching,
+  coloring,
+  tracing,
+  letterCompletion,
   unknown;
 
   static QuestionType parse(String? raw) {
@@ -74,6 +80,27 @@ enum QuestionType {
 
       case 'reading':
         return QuestionType.reading;
+
+      case 'story':
+        return QuestionType.story;
+
+      case 'count_group':
+      case 'countgroup':
+        return QuestionType.countGroup;
+
+      case 'matching':
+        return QuestionType.matching;
+
+      case 'coloring':
+      case 'colouring':
+        return QuestionType.coloring;
+
+      case 'tracing':
+        return QuestionType.tracing;
+
+      case 'letter_completion':
+      case 'lettercompletion':
+        return QuestionType.letterCompletion;
 
       default:
         return QuestionType.unknown;
@@ -169,6 +196,41 @@ class MatchPair {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// COLORING OBJECT MODEL
+// ════════════════════════════════════════════════════════════════════════════
+
+/// One object group in a COLORING question.
+/// [image]         — relative or absolute URL of the outline image.
+/// [targetColor]   — the color the student must apply ("red", "green", …).
+/// [requiredCount] — how many of this object must be colored.
+/// [totalCount]    — how many object tiles to display (≥ requiredCount).
+///                   Defaults to requiredCount + 2 when not supplied by server.
+@immutable
+class ColoringObject {
+  final String image;
+  final String targetColor;
+  final int requiredCount;
+  final int totalCount;
+
+  const ColoringObject({
+    required this.image,
+    required this.targetColor,
+    required this.requiredCount,
+    required this.totalCount,
+  });
+
+  factory ColoringObject.fromJson(Map<String, dynamic> j) {
+    final req = (j['requiredCount'] as num?)?.toInt() ?? 1;
+    return ColoringObject(
+      image: j['image'] as String? ?? '',
+      targetColor: j['targetColor'] as String? ?? 'red',
+      requiredCount: req,
+      totalCount: (j['totalCount'] as num?)?.toInt() ?? (req + 2),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // QUESTION MODEL
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -198,7 +260,7 @@ class Question {
   final List<String> tokens;
   final List<String> targets;
 
-  // ── Image match ──────────────────────────────────────
+  // ── Image match / MATCHING ───────────────────────────
 
   final List<MatchPair> leftPairs;
   final List<MatchPair> rightPairs;
@@ -206,6 +268,16 @@ class Question {
   // ── Voice/write ──────────────────────────────────────
 
   final String? expectedText;
+
+  // ── COLORING ─────────────────────────────────────────
+
+  final List<ColoringObject> coloringObjects;
+
+  // ── LETTER_COMPLETION ─────────────────────────────────
+
+  final List<String> letters;
+  final List<String> words;
+  final List<String> correctAnswers;
 
   // ── Raw ──────────────────────────────────────────────
 
@@ -226,77 +298,89 @@ class Question {
     this.leftPairs = const [],
     this.rightPairs = const [],
     this.expectedText,
+    this.coloringObjects = const [],
+    this.letters = const [],
+    this.words = const [],
+    this.correctAnswers = const [],
     this.raw = const {},
   });
 
   factory Question.fromJson(Map<String, dynamic> j) {
-    // STRING LIST
+    // ── Helpers ────────────────────────────────────────────────────────────
+
     List<String> stringList(dynamic v) =>
         (v as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [];
 
-    // OPTION LIST
-    // supports BOTH:
-    // ["A","B"]
-    // and:
-    // [{text:"",imageUrl:""}]
-
+    // Supports both ["A","B"] and [{text:"",imageUrl:""}] formats.
     List<QuestionOption> optionList(dynamic v) {
-      if (v == null) {
-        return const [];
-      }
-
+      if (v == null) return const [];
       return (v as List<dynamic>).map((e) {
-        // OLD FORMAT
-        if (e is String) {
-          return QuestionOption(text: e, imageUrl: '');
-        }
-
-        // NEW FORMAT
+        if (e is String) return QuestionOption(text: e, imageUrl: '');
         return QuestionOption.fromJson(e as Map<String, dynamic>);
       }).toList();
     }
 
-    // MATCH PAIRS
+    // Parses [{id,text?,imageUrl?}] into MatchPair list.
     List<MatchPair> pairList(dynamic v) =>
         (v as List<dynamic>?)
             ?.map((e) => MatchPair.fromJson(e as Map<String, dynamic>))
             .toList() ??
         const [];
 
+    // ── Type detection ─────────────────────────────────────────────────────
+    final type = QuestionType.parse(j['type'] as String?);
+
+    // ── OPTIONS ────────────────────────────────────────────────────────────
+    // COUNT_GROUP: prefer rich optionObjects (carries imageUrl per option).
+    // All other types: use the plain options array.
+    final List<QuestionOption> resolvedOptions;
+    if (type == QuestionType.countGroup && j['optionObjects'] != null) {
+      resolvedOptions = optionList(j['optionObjects']);
+    } else {
+      resolvedOptions = optionList(j['options']);
+    }
+
+    // ── MATCHING left/right columns ────────────────────────────────────────
+    // Server sends leftItems/rightItems for MATCHING questions.
+    // Existing IMAGE_MATCH keeps using leftPairs/rightPairs (backward compat).
+    final List<MatchPair> resolvedLeft;
+    final List<MatchPair> resolvedRight;
+    if (type == QuestionType.matching) {
+      resolvedLeft = pairList(j['leftItems'] ?? j['leftPairs']);
+      resolvedRight = pairList(j['rightItems'] ?? j['rightPairs']);
+    } else {
+      resolvedLeft = pairList(j['leftPairs']);
+      resolvedRight = pairList(j['rightPairs']);
+    }
+
+    // ── COLORING objects ───────────────────────────────────────────────────
+    List<ColoringObject> coloringObjectList(dynamic v) {
+      if (v == null) return const [];
+      return (v as List<dynamic>)
+          .map((e) => ColoringObject.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
     return Question(
       id: j['id'] as int,
-
-      type: QuestionType.parse(j['type'] as String?),
-
+      type: type,
       questionText: j['questionText'] as String? ?? '',
-
       difficultyLevel: j['difficultyLevel'] as int? ?? 1,
-
       imageUrl: j['imageUrl'] as String?,
-
       audioUrl: j['audioUrl'] as String?,
-
       hint: j['hint'] as String?,
-
-      // ✅ OPTIONS
-      options: optionList(j['options']),
-
-      // OTHER LISTS
+      options: resolvedOptions,
       wordBank: stringList(j['wordBank']),
-
       tokens: stringList(j['tokens']),
-
       targets: stringList(j['targets']),
-
-      // MATCH
-      leftPairs: pairList(j['leftPairs']),
-
-      rightPairs: pairList(j['rightPairs']),
-
-      // ANSWERS
+      leftPairs: resolvedLeft,
+      rightPairs: resolvedRight,
       expectedText:
           j['expectedText'] as String? ?? j['correctAnswer'] as String?,
-
+      coloringObjects: coloringObjectList(j['coloringObjects']),
+      letters: stringList(j['letters']),
+      words: stringList(j['words']),
+      correctAnswers: stringList(j['correctAnswers']),
       raw: j,
     );
   }
